@@ -60,6 +60,19 @@ async function saveExamToDisk(data: ExamData, userEmail: string | null): Promise
 export const app = express();
 app.use(express.json({ limit: "25mb" })); // PDF-të si base64 mund të jenë të mëdha
 
+// Faqe kontrolli — tregon nëse serveri po i sheh variablat (pa shfaqur sekretet).
+app.get("/api/health", (_req, res) => {
+  res.json({
+    ok: true,
+    geminiKey: process.env.GEMINI_API_KEY ? "present" : "MISSING",
+    model: process.env.GEMINI_MODEL || "gemini-2.5-flash",
+    accounts:
+      process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL
+        ? "redis"
+        : "file",
+  });
+});
+
 function fail(res: express.Response, err: unknown) {
   console.error("[GTL.ai] Gabim:", err);
   let msg = err instanceof Error ? err.message : "Ndodhi një gabim i papritur.";
