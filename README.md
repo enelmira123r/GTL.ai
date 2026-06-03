@@ -72,10 +72,21 @@ npm run build     # ndërton frontend-in te dist/
 npm start         # serveri shërben dist/ + API në http://localhost:3001
 ```
 
-## 🌐 Publikim online
-Frontend-i është statik, por API-ja ka nevojë për një server Node (që mban çelësin). Dy mënyra:
-1. **Një host Node** (Render, Railway, Fly.io): vendos `GEMINI_API_KEY` te variablat e mjedisit, ndërto me `npm run build` dhe nise me `npm start`.
-2. **Frontend te Netlify + serverless function** për `/api` (kërkon pak përshtatje).
+## ☁️ Publikim te Vercel
+Backend-i është përshtatur si **serverless function** (`api/index.ts`) dhe llogaritë ruhen në **Upstash Redis** (sepse Vercel s'ruan dot skedarë). Hapat:
+
+1. **Krijo një Upstash Redis falas** — mënyra më e lehtë: te projekti në Vercel → skeda **Storage** → **Create Database** → zgjidh **Upstash (Redis)**. Vercel i shton vetë variablat (`KV_REST_API_URL`, `KV_REST_API_TOKEN`).
+   *(Ose: regjistrohu te [upstash.com](https://upstash.com), krijo një Redis, kopjo "REST URL" + "REST TOKEN" dhe shtoji si `UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN`.)*
+2. Te Vercel → **Settings → Environment Variables**, shto:
+   - `GEMINI_API_KEY` — çelësi yt Gemini
+   - `AUTH_SECRET` — një varg i gjatë i rastësishëm (për nënshkrimin e login-it)
+   - (variablat e Upstash, nëse s'u shtuan vetë te hapi 1)
+3. **Redeploy** (Deployments → ⋯ → Redeploy, ose bëj një push të ri).
+
+> Pa `GEMINI_API_KEY` s'gjeneron; pa Redis + `AUTH_SECRET` s'punon login-i. Arkivi në disk (`provimet/`) **nuk** punon në Vercel (s'ka disk të përhershëm) — vlen vetëm lokalisht.
+
+## 🖥️ Ose një host Node (Render/Railway)
+Si alternativë, çdo host Node e nis app-in pa ndryshime: `GEMINI_API_KEY` te env, build `npm install --include=dev && npm run build`, start `npm start` (shih `render.yaml`).
 
 ## 🗂️ Struktura
 ```
