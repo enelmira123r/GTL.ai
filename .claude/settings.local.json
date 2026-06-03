@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx tsc *)",
+      "Bash(echo \"EXIT: $?\")",
+      "Bash(npm run *)",
+      "mcp__Claude_Preview__preview_start",
+      "PowerShell(Get-Process node -ErrorAction SilentlyContinue | Stop-Process -Force; Start-Sleep -Milliseconds 500; \"node processes after kill:\"; \\(Get-Process node -ErrorAction SilentlyContinue | Measure-Object\\).Count)"
+    ]
+  }
+}

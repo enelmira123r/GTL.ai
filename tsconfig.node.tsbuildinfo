@@ -1,0 +1,1 @@
+{"root":["./vite.config.ts","./server/examdocx.ts","./server/fetchurl.ts","./server/gemini.ts","./server/index.ts","./server/prompts.ts","./server/users.ts","./shared/types.ts"],"version":"5.9.3"}
