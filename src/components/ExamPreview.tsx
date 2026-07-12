@@ -27,9 +27,6 @@ export function ExamPreview({ data }: { data: ExamData }) {
                 <li key={i} className="text-[15px] leading-relaxed text-foreground">
                   <span className="font-semibold">{i + 1}.</span> {q.text}{" "}
                   <span className="font-semibold text-secondary">({q.points} pikë)</span>
-                  {q.rationale && (
-                    <p className="mt-0.5 text-xs italic text-muted-foreground">{q.rationale}</p>
-                  )}
                 </li>
               ))}
             </ol>
