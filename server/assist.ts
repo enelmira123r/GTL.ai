@@ -148,11 +148,15 @@ export async function assistWithMaterial(req: AssistRequest): Promise<AssistResu
 
   parts.push({ text: instruction });
 
+  const vision =
+    hasSource && (req.source!.kind === "image" || req.source!.kind === "pdf");
   const text = await runJson(
     hasSource ? SYSTEM_ASSIST : SYSTEM_GENERAL,
     schema,
     parts,
     intent === "simplify" ? 0.5 : 0.7,
+    32000,
+    vision,
   );
 
   if (!schema) return { intent, answer: text.trim() };

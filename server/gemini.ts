@@ -137,8 +137,22 @@ const EXAM_SCHEMA = {
   required: ["title", "questions"],
 };
 
+// Modelet me aftësi pamore (lexojnë imazh/PDF). flash-lite NUK lexon imazhe.
+const VISION_CAPABLE = [
+  "gemini-2.5-flash",
+  "gemini-2.5-pro",
+  "gemini-1.5-flash",
+  "gemini-1.5-pro",
+];
+
 // Modeli kryesor + një rezervë (nëse i pari është i mbingarkuar/pa kuotë).
-const MODEL_CHAIN = Array.from(new Set([MODEL, "gemini-flash-lite-latest"]));
+// Për hyrje me imazh/PDF përdoren VETËM modele me aftësi pamore — flash-lite
+// nuk i lexon imazhet dhe shkakton gabimin "does not support image input".
+function modelChain(vision: boolean): string[] {
+  if (!vision) return Array.from(new Set([MODEL, "gemini-flash-lite-latest"]));
+  const primary = VISION_CAPABLE.includes(MODEL) ? MODEL : "gemini-2.5-flash";
+  return Array.from(new Set([primary, "gemini-2.5-flash"]));
+}
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -156,10 +170,11 @@ export async function runJson(
   parts: Part[],
   temperature: number,
   maxOutputTokens = 8192,
+  vision = false,
 ): Promise<string> {
   let lastErr: unknown;
 
-  for (const modelName of MODEL_CHAIN) {
+  for (const modelName of modelChain(vision)) {
     const model = getGenAI().getGenerativeModel({
       model: modelName,
       systemInstruction: system,
@@ -254,7 +269,7 @@ export async function generateMaterial(
   }
   parts.push({ text: instruction });
 
-  const text = await runJson(SYSTEM_GENERATE, GENERATE_SCHEMA, parts, 0.7, 16000);
+  const text = await runJson(SYSTEM_GENERATE, GENERATE_SCHEMA, parts, 0.7, 16000, req.kind === "pdf");
   const data = JSON.parse(text) as GenerateResult;
   // Rinumëro id-të (siguri për ndërfaqen) dhe pastro pyetjet boshe.
   data.questions = (data.questions || [])
@@ -389,7 +404,7 @@ export async function generateExam(
   }
   parts.push({ text: instruction });
 
-  const text = await runJson(SYSTEM_EXAM, EXAM_SCHEMA, parts, 0.7);
+  const text = await runJson(SYSTEM_EXAM, EXAM_SCHEMA, parts, 0.7, 32000, src.kind === "image" || src.kind === "pdf");
   return sanitizeExam(JSON.parse(text));
 }
 
@@ -437,7 +452,7 @@ export async function generateExams(
   }
   parts.push({ text: instruction });
 
-  const text = await runJson(SYSTEM_EXAM, EXAM_MULTI_SCHEMA, parts, 0.85, 32000);
+  const text = await runJson(SYSTEM_EXAM, EXAM_MULTI_SCHEMA, parts, 0.85, 32000, src.kind === "image" || src.kind === "pdf");
   const raw = JSON.parse(text) as { exams?: { title?: string; questions?: { text?: string; points?: number }[] }[] };
   const rawExams = Array.isArray(raw.exams) ? raw.exams : [];
 

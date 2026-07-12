@@ -10,11 +10,7 @@ import {
   AlignmentType,
   BorderStyle,
 } from "docx";
-import {
-  type ExamQuestion,
-  DIFFICULTY_LABEL_AL,
-  COGNITIVE_LABEL_AL,
-} from "../shared/types";
+import { type ExamQuestion } from "../shared/types";
 
 export interface ExamDocItem {
   group: string; // shkronja e grupit: A, B, C...
@@ -28,62 +24,43 @@ export interface ExamDocItem {
 const BORDER = { style: BorderStyle.SINGLE, size: 4, color: "000000" };
 const CELL_BORDERS = { top: BORDER, bottom: BORDER, left: BORDER, right: BORDER };
 
-function textCell(
-  text: string,
-  opts: { bold?: boolean; align?: (typeof AlignmentType)[keyof typeof AlignmentType]; size?: number } = {},
-): TableCell {
+const NOTA = ["4", "5", "6", "7", "8", "9", "10"];
+
+/** Ndan 0..total në 7 breza pikësh (për notat 4–10). */
+function pointRanges(total: number): string[] {
+  const ranges: string[] = [];
+  let lower = 0;
+  for (let i = 0; i < 7; i++) {
+    let upper = Math.round(((i + 1) * total) / 7);
+    if (upper < lower) upper = lower;
+    if (i === 6) upper = total; // brezi i fundit mbyllet saktësisht te totali
+    ranges.push(lower === upper ? `${lower}` : `${lower} - ${upper}`);
+    lower = upper + 1;
+  }
+  return ranges;
+}
+
+function gradeCell(text: string, bold = false): TableCell {
   return new TableCell({
     borders: CELL_BORDERS,
-    verticalAlign: "center",
     children: [
       new Paragraph({
-        alignment: opts.align ?? AlignmentType.LEFT,
-        children: [new TextRun({ text, bold: opts.bold, size: opts.size ?? 20 })],
+        alignment: AlignmentType.CENTER,
+        children: [new TextRun({ text, bold, size: 22 })],
       }),
     ],
   });
 }
 
-/** Tabela profesionale e skemës së notimit (si te bordet e provimeve). */
-function scoringTable(questions: ExamQuestion[]): Table {
-  const total = questions.reduce((a, q) => a + (q.points || 0), 0) || 1;
-  const header = new TableRow({
-    children: [
-      textCell("NR", { bold: true, align: AlignmentType.CENTER }),
-      textCell("VËSHTIRËSIA", { bold: true }),
-      textCell("NIVELI KOGNITIV", { bold: true }),
-      textCell("PIKË", { bold: true, align: AlignmentType.CENTER }),
-      textCell("% E TOTALIT", { bold: true, align: AlignmentType.CENTER }),
-    ],
-  });
-
-  const rows = questions.map((q, i) => {
-    const pct = Math.round(((q.points || 0) / total) * 100);
-    return new TableRow({
-      children: [
-        textCell(String(i + 1), { align: AlignmentType.CENTER }),
-        textCell(DIFFICULTY_LABEL_AL[q.difficulty] ?? q.difficulty),
-        textCell(COGNITIVE_LABEL_AL[q.cognitiveLevel] ?? q.cognitiveLevel),
-        textCell(String(q.points), { align: AlignmentType.CENTER }),
-        textCell(`${pct}%`, { align: AlignmentType.CENTER }),
-      ],
-    });
-  });
-
-  const totalRow = new TableRow({
-    children: [
-      textCell("", {}),
-      textCell("", {}),
-      textCell("TOTALI", { bold: true }),
-      textCell(String(total), { bold: true, align: AlignmentType.CENTER }),
-      textCell("100%", { bold: true, align: AlignmentType.CENTER }),
-    ],
-  });
-
+/** Tabela e notimit: 2 rreshta × 7 kolona (notat 4–10 dhe brezat e pikëve). */
+function gradingTable(total: number): Table {
+  const piket = pointRanges(total);
   return new Table({
     width: { size: 100, type: WidthType.PERCENTAGE },
-    columnWidths: [800, 2400, 2800, 1200, 1800],
-    rows: [header, ...rows, totalRow],
+    rows: [
+      new TableRow({ children: NOTA.map((n) => gradeCell(n, true)) }),
+      new TableRow({ children: piket.map((p) => gradeCell(p)) }),
+    ],
   });
 }
 
@@ -151,15 +128,16 @@ function examBlock(item: ExamDocItem, pageBreakBefore: boolean): (Paragraph | Ta
 
   out.push(blank());
 
-  // Tabela e pikëve (skema e notimit sipas pyetjes)
+  // Tabela e notimit (2 rreshta × 7 kolona: notat 4–10 dhe brezat e pikëve)
+  const total = item.questions.reduce((a, q) => a + (q.points || 0), 0);
   out.push(blank());
   out.push(
     new Paragraph({
       spacing: { before: 200 },
-      children: [new TextRun({ text: "TABELA E PIKËVE", bold: true, size: 24 })],
+      children: [new TextRun({ text: "TABELA E NOTIMIT", bold: true, size: 24 })],
     }),
   );
-  out.push(scoringTable(item.questions));
+  out.push(gradingTable(total));
 
   return out;
 }
