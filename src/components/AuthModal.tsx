@@ -162,7 +162,7 @@ export function AuthModal({
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="mjesuesi@shkolla.edu.al"
+                placeholder="perdoruesi@gmail.com"
                 className="pl-9"
                 autoComplete="email"
               />

@@ -52,7 +52,7 @@ export function LoginPage({ onNavigate }: { onNavigate: (v: "home" | "register")
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="mjesuesi@shkolla.edu.al"
+                  placeholder="perdoruesi@gmail.com"
                   className="pl-9"
                   autoComplete="email"
                   required
