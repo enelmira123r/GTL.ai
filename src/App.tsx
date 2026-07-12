@@ -6,14 +6,16 @@ import { Dashboard } from "./components/Dashboard";
 import { Topbar } from "./components/Topbar";
 import { Sidebar } from "./components/Sidebar";
 import { Landing } from "./components/Landing";
+import { SavedTests } from "./components/SavedTests";
 
-export type View = "home" | "dashboard" | "exam" | "assistant";
+export type View = "home" | "dashboard" | "exam" | "assistant" | "tests";
 
 const TITLES: Record<View, string> = {
   home: "GTL.ai",
   dashboard: "Dashboard",
   exam: "Krijo Provim",
   assistant: "Asistenti i Studimit",
+  tests: "Provimet e ruajtura",
 };
 
 export default function App() {
@@ -53,6 +55,8 @@ export default function App() {
                 <Dashboard onNavigate={navigate} />
               ) : view === "exam" ? (
                 <ExamBuilder />
+              ) : view === "tests" ? (
+                <SavedTests onNavigate={navigate} />
               ) : (
                 <StudyAssistant />
               )}

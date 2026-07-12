@@ -7,6 +7,7 @@ import {
   MessagesSquare,
   Home,
   GraduationCap,
+  History,
   LogOut,
   X,
 } from "lucide-react";
@@ -14,6 +15,7 @@ import {
 const ITEMS: { id: View; label: string; icon: typeof Home }[] = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
   { id: "exam", label: "Krijo Provim", icon: FileText },
+  { id: "tests", label: "Provimet e ruajtura", icon: History },
   { id: "assistant", label: "Asistenti", icon: MessagesSquare },
   { id: "home", label: "Faqja kryesore", icon: Home },
 ];

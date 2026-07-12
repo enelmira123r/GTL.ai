@@ -1,4 +1,11 @@
-import type { ExamRequest, ExamData, AssistRequest, AssistResult } from "../shared/types";
+import type {
+  ExamRequest,
+  ExamData,
+  AssistRequest,
+  AssistResult,
+  SavedTestSummary,
+  SavedTest,
+} from "../shared/types";
 
 export interface AuthResult {
   token: string;
@@ -67,6 +74,60 @@ function examFileName(data: ExamData): string {
 /** Asistenti i Studimit — pyetje e bazuar vetëm te materiali i ngarkuar. */
 export async function assist(req: AssistRequest): Promise<AssistResult> {
   return postJson<AssistResult>("/api/assist", req, "Asistenti nuk u përgjigj.");
+}
+
+/** Liston provimet e ruajtura të mësuesit (historiku). Kërkon token. */
+export async function listTests(token: string): Promise<SavedTestSummary[]> {
+  const res = await fetch("/api/tests", {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) {
+    let msg = "Nuk u morën dot provimet e ruajtura.";
+    try {
+      const e = await res.json();
+      if (e?.error) msg = e.error;
+    } catch {
+      /* injoro */
+    }
+    throw new Error(msg);
+  }
+  return (await res.json()) as SavedTestSummary[];
+}
+
+/** Merr një provim të ruajtur sipas id (me të dhënat e plota). Kërkon token. */
+export async function getTest(id: string, token: string): Promise<SavedTest> {
+  const res = await fetch(`/api/tests/${encodeURIComponent(id)}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) {
+    let msg = "Provimi nuk u gjet.";
+    try {
+      const e = await res.json();
+      if (e?.error) msg = e.error;
+    } catch {
+      /* injoro */
+    }
+    throw new Error(msg);
+  }
+  return (await res.json()) as SavedTest;
+}
+
+/** Fshin një provim të ruajtur sipas id. Kërkon token. */
+export async function deleteTest(id: string, token: string): Promise<void> {
+  const res = await fetch(`/api/tests/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) {
+    let msg = "Fshirja dështoi.";
+    try {
+      const e = await res.json();
+      if (e?.error) msg = e.error;
+    } catch {
+      /* injoro */
+    }
+    throw new Error(msg);
+  }
 }
 
 /** Shkarkon provimin si Word (.docx) nga të dhënat e gjeneruara. Kërkon token (login). */

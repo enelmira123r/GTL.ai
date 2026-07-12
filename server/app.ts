@@ -10,6 +10,7 @@ import { fetchLessonFromUrl } from "./fetchUrl";
 import { buildExamsDocx } from "./examDocx";
 import { cleanLessonText } from "./cleanText";
 import { registerUser, verifyUser, makeToken, tokenEmail } from "./users";
+import { saveTest, listTests, getTest, deleteTest, newId } from "./store";
 import type { ExamRequest, ExamData } from "../shared/types";
 
 const MAX_GROUPS = 30;
@@ -304,6 +305,24 @@ app.post("/api/exam-generate", async (req, res) => {
       /* fs vetëm-lexim ose s'lejon shkrim — vazhdo pa ruajtje në disk */
     }
 
+    // Ruaje në historikun e mësuesit (vetëm nëse është i kyçur).
+    const owner = authedEmail(req);
+    if (owner) {
+      await saveTest({
+        id: newId(),
+        email: owner,
+        title: data.exams[0]?.title || "Provim",
+        lenda: head.lenda,
+        klasa: head.klasa,
+        tremujori: head.tremujori,
+        numGroups: data.exams.length,
+        numQuestions: data.exams.reduce((a, e) => a + e.questions.length, 0),
+        createdAt: new Date().toISOString(),
+        data,
+        savedPath: data.savedPath,
+      });
+    }
+
     cacheSet(cacheKey, data);
     res.json(data);
   } catch (err) {
@@ -365,6 +384,56 @@ app.post("/api/exam-docx", async (req, res) => {
     );
     res.setHeader("Content-Disposition", 'attachment; filename="provim-gtl.docx"');
     res.send(buf);
+  } catch (err) {
+    fail(res, err);
+  }
+});
+
+// 3) Historiku i provimeve të ruajtura — lista (pa `data` për ngarkesë të vogël). Kërkon login.
+app.get("/api/tests", async (req, res) => {
+  try {
+    const email = authedEmail(req);
+    if (!email) {
+      res.status(401).json({ error: "Duhet të identifikohesh për të parë provimet e ruajtura." });
+      return;
+    }
+    const all = await listTests(email);
+    const summaries = all.map(({ data, ...rest }) => rest);
+    res.json(summaries);
+  } catch (err) {
+    fail(res, err);
+  }
+});
+
+// 3b) Një provim i ruajtur sipas id (me `data` për ri-hapje/shkarkim). Kërkon login.
+app.get("/api/tests/:id", async (req, res) => {
+  try {
+    const email = authedEmail(req);
+    if (!email) {
+      res.status(401).json({ error: "Duhet të identifikohesh." });
+      return;
+    }
+    const test = await getTest(email, String(req.params.id));
+    if (!test) {
+      res.status(404).json({ error: "Provimi nuk u gjet." });
+      return;
+    }
+    res.json(test);
+  } catch (err) {
+    fail(res, err);
+  }
+});
+
+// 3c) Fshij një provim të ruajtur. Kërkon login.
+app.delete("/api/tests/:id", async (req, res) => {
+  try {
+    const email = authedEmail(req);
+    if (!email) {
+      res.status(401).json({ error: "Duhet të identifikohesh." });
+      return;
+    }
+    await deleteTest(email, String(req.params.id));
+    res.json({ ok: true });
   } catch (err) {
     fail(res, err);
   }

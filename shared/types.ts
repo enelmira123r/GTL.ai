@@ -155,6 +155,27 @@ export interface ExamData {
   savedPath?: string;
 }
 
+// ---- Provimet e ruajtura (historiku i mësuesit) ----
+export interface SavedTest {
+  id: string;
+  email: string;
+  title: string;
+  lenda: string;
+  klasa: string;
+  tremujori: string;
+  numGroups: number;
+  numQuestions: number;
+  /** Koha e krijimit (ISO string). */
+  createdAt: string;
+  /** Të dhënat e plota të provimit — për ri-hapje dhe shkarkim Word. */
+  data: ExamData;
+  /** Rruga e skedarit .docx në disk (vetëm lokalisht). */
+  savedPath?: string;
+}
+
+/** Variant i lehtë i SavedTest për listimin (pa `data` për ngarkesë më të vogël). */
+export type SavedTestSummary = Omit<SavedTest, "data">;
+
 export interface ExamRequest {
   source: ExamSource;
   /** Sa variante të ndryshme provimi (një për secilin grup), 1–30. */
