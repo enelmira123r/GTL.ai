@@ -9,6 +9,7 @@ import { Button } from "./ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "./ui/card";
 import { Input, Textarea, Label, Select } from "./ui/input";
 import { Badge } from "./ui/badge";
+import { Plus } from "lucide-react";
 
 const COUNTS = [5, 8, 10, 12, 15];
 const ALLOWED_IMG = ["image/jpeg", "image/png", "image/webp", "image/gif"];
@@ -151,6 +152,25 @@ export function ExamBuilder({ onGenerated }: { onGenerated?: () => void } = {}) 
         setDlLoading(false);
       }
     });
+  }
+
+  // Rikthen formën në gjendjen fillestare për të krijuar një provim të ri.
+  function startNew() {
+    setText("");
+    setUrl("");
+    setFile(null);
+    setFileErr(null);
+    setLenda("");
+    setKlasa("");
+    setNumGroups(2);
+    setMaxScore(100);
+    setTremujori("");
+    setNumQuestions(8);
+    setFromPage("");
+    setToPage("");
+    setPreview(null);
+    setExamErr(null);
+    setDlErr(null);
   }
 
   const classes = [...new Set(BOOKS.map((b) => b.klasa))].sort(
@@ -462,9 +482,14 @@ export function ExamBuilder({ onGenerated }: { onGenerated?: () => void } = {}) 
                 Identifikuar si <b className="text-foreground">{userEmail}</b>
               </p>
             )}
-            <Button onClick={handleDownload} disabled={dlLoading} size="lg" className="w-full">
-              {dlLoading ? "Po shkarkohet…" : isAuthed ? "Shkarko Word (.docx)" : "🔒 Identifikohu & shkarko"}
-            </Button>
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <Button onClick={handleDownload} disabled={dlLoading} size="lg" className="flex-1">
+                {dlLoading ? "Po shkarkohet…" : isAuthed ? "Shkarko Word (.docx)" : "🔒 Identifikohu & shkarko"}
+              </Button>
+              <Button onClick={startNew} variant="outline" size="lg">
+                <Plus className="h-4 w-4" /> Provim i ri
+              </Button>
+            </div>
             {!isAuthed && (
               <p className="text-center text-xs text-muted-foreground">
                 Falas · pas hyrjes shkarkimi nis vetë.
