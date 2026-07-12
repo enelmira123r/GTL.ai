@@ -77,6 +77,9 @@ export function Landing({ onNavigate }: { onNavigate: (v: View) => void }) {
             <Button size="lg" variant="outline" onClick={() => onNavigate("assistant")}>
               Provo Asistentin
             </Button>
+            <Button size="lg" variant="secondary" onClick={() => onNavigate("login")}>
+              Hyr
+            </Button>
           </div>
           <div className="flex flex-wrap items-center gap-4 pt-2 text-sm text-muted-foreground">
             <span className="flex items-center gap-1.5"><CheckCircle2 className="h-4 w-4 text-accent" /> Pa kartë krediti</span>
