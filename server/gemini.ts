@@ -127,9 +127,10 @@ const EXAM_SCHEMA = {
             enum: ["Remember", "Understand", "Apply", "Analyze", "Evaluate", "Create"],
           },
           weight: { type: "number" },
+          points: { type: "integer", minimum: 3, maximum: 10 },
           rationale: { type: "string" },
         },
-        required: ["text", "difficulty", "cognitiveLevel", "weight", "rationale"],
+        required: ["text", "difficulty", "cognitiveLevel", "weight", "points", "rationale"],
       },
     },
   },
@@ -289,8 +290,10 @@ export interface ExamQuestionMeta {
   text: string;
   difficulty: Difficulty;
   cognitiveLevel: CognitiveLevel;
-  /** Pesha relative e kompleksitetit (1–10) — sistemi llogarit pikët prej saj. */
+  /** Pesha relative e kompleksitetit (1–10). */
   weight: number;
+  /** Pikët e pyetjes (3–4 normale, 5–10 të gjata), të caktuara nga AI. */
+  points: number;
   /** Arsyeja arsimore e peshës (për skemën e notimit). */
   rationale: string;
 }
@@ -318,6 +321,7 @@ function sanitizeExam(raw: {
     difficulty?: string;
     cognitiveLevel?: string;
     weight?: number;
+    points?: number;
     rationale?: string;
   }[];
 }): ExamContent {
@@ -333,11 +337,19 @@ function sanitizeExam(raw: {
       let weight = Number(q.weight);
       if (!Number.isFinite(weight)) weight = 5;
       weight = Math.min(10, Math.max(1, weight));
+
+      // Pikët: 3–4 normale, 5–10 të gjata. Asnjë mbi 5 përveç atyre shumë komplekse.
+      let points = Math.round(Number(q.points));
+      if (!Number.isFinite(points)) points = weight >= 8 ? 7 : 4;
+      points = Math.min(10, Math.max(3, points));
+      if (weight < 8) points = Math.min(points, 5); // ushtrimet normale: ≤ 5 pikë
+
       return {
         text: String(q.text),
         difficulty,
         cognitiveLevel,
         weight,
+        points,
         rationale: String(q.rationale || ""),
       };
     });
@@ -345,8 +357,13 @@ function sanitizeExam(raw: {
   return { title: raw.title || "Detyrë Përmbledhëse", questions: qs };
 }
 
-export async function generateExam(src: ExamInput, numQuestions = 5): Promise<ExamContent> {
+export async function generateExam(
+  src: ExamInput,
+  numQuestions = 5,
+  maxScore = 100,
+): Promise<ExamContent> {
   const nq = Math.max(1, Math.min(15, Math.round(numQuestions || 5)));
+  const total = Math.max(1, Math.min(1000, Math.round(maxScore || 100)));
   let instruction =
     `Krijo një provim ("detyrë përmbledhëse") bazuar ${
       src.kind === "pdf"
@@ -356,7 +373,8 @@ export async function generateExam(src: ExamInput, numQuestions = 5): Promise<Ex
           : "te materiali më poshtë"
     }.\n` +
     `Jep një titull të shkurtër dhe SAKTËSISHT ${nq} pyetje me përgjigje të hapur (as më shumë e as më pak). ` +
-    `Vlerëso vështirësinë, nivelin kognitiv, peshën (1–10) dhe arsyen për ÇDO pyetje sipas udhëzimeve në sistem. Mos cakto pikët — ato llogariten më vonë.`;
+    `Vlerëso vështirësinë, nivelin kognitiv, peshën (1–10) dhe arsyen për ÇDO pyetje sipas udhëzimeve në sistem. ` +
+    `Cakto edhe pikët (points) sipas rregullave: pyetja normale 3–4 pikë, pyetja e gjatë/komplekse 5–10 pikë, asnjë mbi 5 përveç atyre shumë të gjata. Syrno që shuma të jetë afër ${total}.`;
 
   const parts: Part[] = [];
   if (src.kind === "pdf") {
@@ -387,10 +405,11 @@ const EXAM_MULTI_SCHEMA = {
 export async function generateExams(
   src: ExamInput,
   numGroups: number,
-  opts: { numQuestions?: number } = {},
+  opts: { numQuestions?: number; maxScore?: number } = {},
 ): Promise<ExamContent[]> {
   const n = Math.max(1, Math.min(30, Math.round(numGroups || 1)));
   const nq = Math.max(1, Math.min(15, Math.round(opts.numQuestions || 5)));
+  const total = Math.max(1, Math.min(1000, Math.round(opts.maxScore || 100)));
 
   let instruction =
     `Krijo ${n} VARIANTE TË NDRYSHME provimi ("detyra përmbledhëse"), një për secilin grup, bazuar ${
@@ -401,7 +420,8 @@ export async function generateExams(
           : "te materiali më poshtë"
     }.\n` +
     `Çdo variant duhet të ketë një titull të shkurtër dhe SAKTËSISHT ${nq} pyetje me përgjigje të hapur (as më shumë e as më pak).\n` +
-    `Vlerëso vështirësinë, nivelin kognitiv, peshën (1–10) dhe arsyen për ÇDO pyetje sipas udhëzimeve në sistem. Mos cakto pikët — ato llogariten më vonë.\n` +
+    `Vlerëso vështirësinë, nivelin kognitiv, peshën (1–10) dhe arsyen për ÇDO pyetje sipas udhëzimeve në sistem. ` +
+    `Cakto edhe pikët (points) sipas rregullave: pyetja normale 3–4 pikë, pyetja e gjatë/komplekse 5–10 pikë, asnjë mbi 5 përveç atyre shumë të gjata. Syrno që shuma e çdo varianti të jetë afër ${total}.\n` +
     `Variantet duhet të jenë TË NDRYSHME nga njëri-tjetri (pyetje dhe formulime të ndryshme), por të mbulojnë të njëjtën temë në të njëjtin nivel vështirësie.`;
 
   const parts: Part[] = [];
@@ -421,7 +441,7 @@ export async function generateExams(
   const exams: ExamContent[] = [];
   for (let i = 0; i < n; i++) {
     // Nëse modeli ktheu më pak variante, plotëso me një thirrje të veçantë.
-    const source = rawExams[i] ?? (await generateExam(src, nq));
+    const source = rawExams[i] ?? (await generateExam(src, nq, total));
     exams.push(sanitizeExam(source));
   }
   return exams;

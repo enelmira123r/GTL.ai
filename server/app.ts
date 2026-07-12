@@ -9,7 +9,6 @@ import { assistWithMaterial, ASSIST_INTENTS } from "./assist";
 import { fetchLessonFromUrl } from "./fetchUrl";
 import { buildExamsDocx } from "./examDocx";
 import { cleanLessonText } from "./cleanText";
-import { allocatePoints } from "./scoring";
 import { registerUser, verifyUser, makeToken, tokenEmail } from "./users";
 import type { ExamRequest, ExamData } from "../shared/types";
 
@@ -275,29 +274,27 @@ app.post("/api/exam-generate", async (req, res) => {
 
     const n = Math.max(1, Math.min(MAX_GROUPS, Math.round(Number(body.numGroups) || 1)));
     const maxScore = Math.max(1, Math.min(1000, Math.round(Number(body.maxScore) || 100)));
-    const generated = await generateExams(src, n, { numQuestions: body.numQuestions });
+    const generated = await generateExams(src, n, {
+      numQuestions: body.numQuestions,
+      maxScore,
+    });
 
-    // Llogarit pikët përfundimtare sipas peshës së vështirësisë — shuma saktë = maxScore.
+    // Pikët vijnë drejtpërdrejt nga AI (3–4 normale, 5–10 të gjata) — shuma = totali real.
     const data: ExamData = {
       lenda: head.lenda,
       klasa: head.klasa,
       tremujori: head.tremujori,
-      exams: generated.map((e, i) => {
-        const count = e.questions.length;
-        const score = Math.max(maxScore, count); // çdo pyetje ≥ 1 pikë
-        const points = allocatePoints(score, e.questions.map((q) => q.weight));
-        return {
-          group: groupLabel(i),
-          title: e.title,
-          questions: e.questions.map((q, idx) => ({
-            text: q.text,
-            points: points[idx],
-            difficulty: q.difficulty,
-            cognitiveLevel: q.cognitiveLevel,
-            rationale: q.rationale,
-          })),
-        };
-      }),
+      exams: generated.map((e, i) => ({
+        group: groupLabel(i),
+        title: e.title,
+        questions: e.questions.map((q) => ({
+          text: q.text,
+          points: q.points,
+          difficulty: q.difficulty,
+          cognitiveLevel: q.cognitiveLevel,
+          rationale: q.rationale,
+        })),
+      })),
     };
 
     // Ruaje automatikisht në disk nëse lejohet (lokalisht); në Vercel kjo dështon e injorohet.

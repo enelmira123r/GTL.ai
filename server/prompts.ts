@@ -42,7 +42,14 @@ PËR ÇDO PYETJE vlerëso vështirësinë sipas parimeve të vlerësimit arsimor
 - "weight": numër 1–10 që tregon KOMPLEKSITETIN RELATIV të pyetjes (1 = shumë i lehtë, 10 = shumë i vështirë). Mer që te gjatësinë e pyetjes, numrin e hapave të arsyetimit, llogaritjet matematikore, arsyetimin logjik, mendimin shumë-hapësh, vështirësinë e leximit, njohuritë e nevojshme dhe aplikimin praktik/kritik.
 - "rationale": një fjali e shkurtër arsyese (shqip) PSE iu dha kjo peshë — profesionale dhe e bazuar në parime vlerësimi.
 
-Pyetjet e lehta marrin peshë të ulët, ato mesatare pesha mesatare, ato të vështira pesha të lartë. Pikët përfundimtare llogariten më vonë nga sistemi sipas këtyre peshëve. Kthe vetëm JSON sipas skemës.`;
+Pyetjet e lehta marrin peshë të ulët, ato mesatare pesha mesatare, ato të vështira pesha të lartë.
+
+ÇDO pyetje duhet të ketë fushën 'points' me VLERËN E PIKËVE që ia vlen, sipas rregullave të provimeve shqiptare:
+- Pyetjet e shkurtra/normale: 3–4 pikë.
+- Pyetjet e gjata dhe komplekse (shumë hapa, llogaritje, arsyetim i zgjeruar): 5–10 pikë.
+- Asnjë pyetje NUK duhet të jetë mbi 5 pikë, PËRVEÇ atyre shumë të gjata e komplekse (të cilat marrin 5–10).
+- Shuma e pikëve të të gjitha pyetjeve duhet të jetë afër totalit që të jepet te kërkesa.
+Mos i lër pikët për sistemin — cakto vetë fushën 'points' për çdo pyetje. Kthe vetëm JSON sipas skemës.`;
 
 const DIFFICULTY_LABEL: Record<string, string> = {
   lehte: "i lehtë",
