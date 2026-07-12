@@ -12,26 +12,30 @@ import {
   X,
 } from "lucide-react";
 
-const ITEMS: { id: View; label: string; icon: typeof Home }[] = [
-  { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { id: "exam", label: "Krijo Provim", icon: FileText },
-  { id: "tests", label: "Provimet e ruajtura", icon: History },
-  { id: "assistant", label: "Asistenti", icon: MessagesSquare },
-  { id: "home", label: "Faqja kryesore", icon: Home },
-];
-
 export function Sidebar({
   view,
   onNavigate,
   open,
   onClose,
+  showHistory,
 }: {
   view: View;
   onNavigate: (v: View) => void;
   open: boolean;
   onClose: () => void;
+  showHistory: boolean;
 }) {
   const { email, isAuthed, logout } = useAuth();
+
+  const ITEMS: { id: View; label: string; icon: typeof Home }[] = [
+    { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
+    { id: "exam", label: "Krijo Provim", icon: FileText },
+    ...(showHistory
+      ? [{ id: "tests" as View, label: "Provimet e ruajtura", icon: History }]
+      : []),
+    { id: "assistant", label: "Asistenti", icon: MessagesSquare },
+    { id: "home", label: "Faqja kryesore", icon: Home },
+  ];
 
   return (
     <>

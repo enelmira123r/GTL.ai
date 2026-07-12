@@ -21,6 +21,8 @@ const TITLES: Record<View, string> = {
 export default function App() {
   const [view, setView] = useState<View>("home");
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  // Shfaq menynë e historikut vetëm pasi të jetë gjeneruar të paktën një provim.
+  const [hasGenerated, setHasGenerated] = useState(false);
 
   const navigate = (v: View) => {
     setView(v);
@@ -49,12 +51,13 @@ export default function App() {
               onNavigate={navigate}
               open={sidebarOpen}
               onClose={() => setSidebarOpen(false)}
+              showHistory={hasGenerated}
             />
             <main key={view} className="min-w-0 flex-1 animate-fade-up px-4 py-8 sm:px-8">
               {view === "dashboard" ? (
                 <Dashboard onNavigate={navigate} />
               ) : view === "exam" ? (
-                <ExamBuilder />
+                <ExamBuilder onGenerated={() => setHasGenerated(true)} />
               ) : view === "tests" ? (
                 <SavedTests onNavigate={navigate} />
               ) : (

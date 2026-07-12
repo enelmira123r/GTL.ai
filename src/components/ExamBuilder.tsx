@@ -34,7 +34,7 @@ const MODES: { id: Mode; label: string }[] = [
   { id: "image", label: "Foto" },
 ];
 
-export function ExamBuilder() {
+export function ExamBuilder({ onGenerated }: { onGenerated?: () => void } = {}) {
   const [mode, setMode] = useState<Mode>("text");
   const [text, setText] = useState("");
   const [url, setUrl] = useState("");
@@ -128,6 +128,7 @@ export function ExamBuilder() {
         token,
       );
       setPreview(data);
+      onGenerated?.();
     } catch (e) {
       setExamErr(e instanceof Error ? e.message : "Gabim gjatë gjenerimit të provimit.");
     } finally {
