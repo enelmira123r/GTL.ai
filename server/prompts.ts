@@ -44,12 +44,13 @@ PËR ÇDO PYETJE vlerëso vështirësinë sipas parimeve të vlerësimit arsimor
 
 Pyetjet e lehta marrin peshë të ulët, ato mesatare pesha mesatare, ato të vështira pesha të lartë.
 
-ÇDO pyetje duhet të ketë fushën 'points' me VLERËN E PIKËVE që ia vlen, sipas rregullave të provimeve shqiptare:
-- Pyetjet e shkurtra/normale: 3–4 pikë.
-- Pyetjet e gjata dhe komplekse (shumë hapa, llogaritje, arsyetim i zgjeruar): 5–10 pikë.
-- Asnjë pyetje NUK duhet të jetë mbi 5 pikë, PËRVEÇ atyre shumë të gjata e komplekse (të cilat marrin 5–10).
+ÇDO pyetje duhet të ketë fushën 'points' me VLERËN E PIKËVE që varet nga vështirësia, sipas rregullave të provimeve shqiptare:
+- e lehtë (easy): 1–2 pikë.
+- mesatare (medium): 3–4 pikë.
+- e vështirë (hard): 5 pikë.
+- e vështirë DHE shumë e gjatë/komplekse (hard me shumë hapa, llogaritje, arsyetim të zgjeruar): 5–10 pikë.
 - Shuma e pikëve të të gjitha pyetjeve duhet të jetë afër totalit që të jepet te kërkesa.
-Mos i lër pikët për sistemin — cakto vetë fushën 'points' për çdo pyetje. Kthe vetëm JSON sipas skemës.`;
+Mos i lër pikët për sistemin — cakto vetë fushën 'points' për çdo pyetje sipas vështirësisë. Kthe vetëm JSON sipas skemës.`;
 
 const DIFFICULTY_LABEL: Record<string, string> = {
   lehte: "i lehtë",

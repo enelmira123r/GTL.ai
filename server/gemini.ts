@@ -338,11 +338,14 @@ function sanitizeExam(raw: {
       if (!Number.isFinite(weight)) weight = 5;
       weight = Math.min(10, Math.max(1, weight));
 
-      // Pikët: 3–4 normale, 5–10 të gjata. Asnjë mbi 5 përveç atyre shumë komplekse.
+      // Pikët variojnë sipas vështirësisë: e lehtë 1–2, mesatare 3–4, e vështirë 5–10.
       let points = Math.round(Number(q.points));
-      if (!Number.isFinite(points)) points = weight >= 8 ? 7 : 4;
-      points = Math.min(10, Math.max(3, points));
-      if (weight < 8) points = Math.min(points, 5); // ushtrimet normale: ≤ 5 pikë
+      if (!Number.isFinite(points)) {
+        points = difficulty === "easy" ? 2 : difficulty === "hard" ? 5 : 4;
+      }
+      const [lo, hi] =
+        difficulty === "easy" ? [1, 2] : difficulty === "medium" ? [3, 4] : [5, 10];
+      points = Math.min(hi, Math.max(lo, points));
 
       return {
         text: String(q.text),
@@ -374,7 +377,7 @@ export async function generateExam(
     }.\n` +
     `Jep një titull të shkurtër dhe SAKTËSISHT ${nq} pyetje me përgjigje të hapur (as më shumë e as më pak). ` +
     `Vlerëso vështirësinë, nivelin kognitiv, peshën (1–10) dhe arsyen për ÇDO pyetje sipas udhëzimeve në sistem. ` +
-    `Cakto edhe pikët (points) sipas rregullave: pyetja normale 3–4 pikë, pyetja e gjatë/komplekse 5–10 pikë, asnjë mbi 5 përveç atyre shumë të gjata. Syrno që shuma të jetë afër ${total}.`;
+    `Cakto edhe pikët (points) sipas vështirësisë: e lehtë 1–2, mesatare 3–4, e vështirë 5, e vështirë dhe shumë e gjatë 5–10. Syrno që shuma të jetë afër ${total}.`;
 
   const parts: Part[] = [];
   if (src.kind === "pdf") {
@@ -421,7 +424,7 @@ export async function generateExams(
     }.\n` +
     `Çdo variant duhet të ketë një titull të shkurtër dhe SAKTËSISHT ${nq} pyetje me përgjigje të hapur (as më shumë e as më pak).\n` +
     `Vlerëso vështirësinë, nivelin kognitiv, peshën (1–10) dhe arsyen për ÇDO pyetje sipas udhëzimeve në sistem. ` +
-    `Cakto edhe pikët (points) sipas rregullave: pyetja normale 3–4 pikë, pyetja e gjatë/komplekse 5–10 pikë, asnjë mbi 5 përveç atyre shumë të gjata. Syrno që shuma e çdo varianti të jetë afër ${total}.\n` +
+    `Cakto edhe pikët (points) sipas vështirësisë: e lehtë 1–2, mesatare 3–4, e vështirë 5, e vështirë dhe shumë e gjatë 5–10. Syrno që shuma e çdo varianti të jetë afër ${total}.\n` +
     `Variantet duhet të jenë TË NDRYSHME nga njëri-tjetri (pyetje dhe formulime të ndryshme), por të mbulojnë të njëjtën temë në të njëjtin nivel vështirësie.`;
 
   const parts: Part[] = [];

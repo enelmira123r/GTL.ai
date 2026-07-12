@@ -28,50 +28,6 @@ export interface ExamDocItem {
 const BORDER = { style: BorderStyle.SINGLE, size: 4, color: "000000" };
 const CELL_BORDERS = { top: BORDER, bottom: BORDER, left: BORDER, right: BORDER };
 
-// Notat 4–10 (7 nota).
-const NOTA = ["4", "5", "6", "7", "8", "9", "10"];
-
-/** Ndan 0..total në 7 breza pikësh, sipas totalit real të çdo testi. */
-function pointRanges(total: number): string[] {
-  const ranges: string[] = [];
-  let lower = 0;
-  for (let i = 0; i < 7; i++) {
-    let upper = Math.round(((i + 1) * total) / 7);
-    if (upper < lower) upper = lower;
-    if (i === 6) upper = total; // brezi i fundit mbyllet saktësisht te totali
-    ranges.push(lower === upper ? `${lower}` : `${lower} - ${upper}`);
-    lower = upper + 1;
-  }
-  return ranges;
-}
-
-function gradeCell(text: string, bold = false): TableCell {
-  return new TableCell({
-    borders: CELL_BORDERS,
-    children: [
-      new Paragraph({
-        alignment: AlignmentType.CENTER,
-        children: [new TextRun({ text, bold, size: 22 })],
-      }),
-    ],
-  });
-}
-
-function gradingTable(total: number): Table {
-  const piket = pointRanges(total);
-  return new Table({
-    width: { size: 100, type: WidthType.PERCENTAGE },
-    rows: [
-      new TableRow({
-        children: [gradeCell("NOTA", true), ...NOTA.map((n) => gradeCell(n, true))],
-      }),
-      new TableRow({
-        children: [gradeCell("PIKËT", true), ...piket.map((p) => gradeCell(p))],
-      }),
-    ],
-  });
-}
-
 function textCell(
   text: string,
   opts: { bold?: boolean; align?: (typeof AlignmentType)[keyof typeof AlignmentType]; size?: number } = {},
@@ -194,15 +150,13 @@ function examBlock(item: ExamDocItem, pageBreakBefore: boolean): (Paragraph | Ta
   });
 
   out.push(blank());
-  const total = item.questions.reduce((a, q) => a + (q.points || 0), 0);
-  out.push(gradingTable(total));
 
-  // Skema profesionale e notimit
+  // Tabela e pikëve (skema e notimit sipas pyetjes)
   out.push(blank());
   out.push(
     new Paragraph({
       spacing: { before: 200 },
-      children: [new TextRun({ text: "SKEMA E NOTIMIT", bold: true, size: 24 })],
+      children: [new TextRun({ text: "TABELA E PIKËVE", bold: true, size: 24 })],
     }),
   );
   out.push(scoringTable(item.questions));

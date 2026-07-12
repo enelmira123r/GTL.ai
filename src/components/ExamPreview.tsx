@@ -2,45 +2,6 @@ import type { ExamData, ExamQuestion } from "../../shared/types";
 import { DIFFICULTY_LABEL_AL, COGNITIVE_LABEL_AL } from "../../shared/types";
 import { Card } from "./ui/card";
 
-const NOTA = ["4", "5", "6", "7", "8", "9", "10"];
-
-function pointRanges(total: number): string[] {
-  const ranges: string[] = [];
-  let lower = 0;
-  for (let i = 0; i < 7; i++) {
-    let upper = Math.round(((i + 1) * total) / 7);
-    if (upper < lower) upper = lower;
-    if (i === 6) upper = total;
-    ranges.push(lower === upper ? `${lower}` : `${lower} - ${upper}`);
-    lower = upper + 1;
-  }
-  return ranges;
-}
-
-function gradingTable(total: number) {
-  const piket = pointRanges(total);
-  return (
-    <table className="w-full border-collapse text-sm">
-      <thead>
-        <tr className="bg-muted/40">
-          <th className="border border-border px-2 py-1.5 font-bold text-foreground">NOTA</th>
-          {NOTA.map((n) => (
-            <th key={n} className="border border-border px-2 py-1.5 font-bold text-foreground">{n}</th>
-          ))}
-        </tr>
-      </thead>
-      <tbody>
-        <tr>
-          <th className="border border-border px-2 py-1.5 font-bold text-foreground">PIKËT</th>
-          {piket.map((p) => (
-            <td key={p} className="border border-border px-2 py-1.5 text-center text-foreground">{p}</td>
-          ))}
-        </tr>
-      </tbody>
-    </table>
-  );
-}
-
 function scoringTable(questions: ExamQuestion[]) {
   const total = questions.reduce((a, q) => a + (q.points || 0), 0) || 1;
   return (
@@ -83,7 +44,6 @@ export function ExamPreview({ data }: { data: ExamData }) {
   return (
     <div className="space-y-6">
       {data.exams.map((ex) => {
-        const total = ex.questions.reduce((a, q) => a + (q.points || 0), 0);
         return (
           <Card key={ex.group} className="overflow-hidden p-0">
             <div className="border-b border-white/5 bg-muted/40 px-6 py-4">
@@ -111,15 +71,9 @@ export function ExamPreview({ data }: { data: ExamData }) {
                 ))}
               </ol>
 
-              <div className="mt-6 space-y-4">
-                <div>
-                  <p className="mb-2 text-sm font-bold text-foreground">SKEMA E NOTIMIT</p>
-                  {scoringTable(ex.questions)}
-                </div>
-                <div>
-                  <p className="mb-2 text-sm font-bold text-foreground">TABELA E NOTIMIT</p>
-                  {gradingTable(total)}
-                </div>
+              <div className="mt-6">
+                <p className="mb-2 text-sm font-bold text-foreground">TABELA E PIKËVE</p>
+                {scoringTable(ex.questions)}
               </div>
             </div>
           </Card>
