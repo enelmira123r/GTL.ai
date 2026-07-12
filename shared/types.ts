@@ -36,12 +36,12 @@ export interface GenerateResult {
   questions: Question[];
 }
 
-export type Difficulty = "lehte" | "mesatar" | "veshtire";
+export type GenDifficulty = "lehte" | "mesatar" | "veshtire";
 
 export interface GenerateRequestText {
   kind: "text";
   text: string;
-  difficulty: Difficulty;
+  difficulty: GenDifficulty;
   numQuestions: number;
 }
 
@@ -49,14 +49,14 @@ export interface GenerateRequestPdf {
   kind: "pdf";
   pdfBase64: string;
   fileName: string;
-  difficulty: Difficulty;
+  difficulty: GenDifficulty;
   numQuestions: number;
 }
 
 export interface GenerateRequestUrl {
   kind: "url";
   url: string;
-  difficulty: Difficulty;
+  difficulty: GenDifficulty;
   numQuestions: number;
 }
 
@@ -88,17 +88,62 @@ export interface GradeResult {
 }
 
 // ---- Provimi Word (.docx) ----
+
+/** Vështirësia e një pyetjeje (vlerësuar nga AI). */
+export type Difficulty = "easy" | "medium" | "hard";
+
+/** Nivelet kognitive sipas Taksonomisë së Bloom-it. */
+export const COGNITIVE_LEVELS = [
+  "Remember",
+  "Understand",
+  "Apply",
+  "Analyze",
+  "Evaluate",
+  "Create",
+] as const;
+export type CognitiveLevel = (typeof COGNITIVE_LEVELS)[number];
+
+export const DIFFICULTY_LABEL_AL: Record<Difficulty, string> = {
+  easy: "E lehtë",
+  medium: "Mesatare",
+  hard: "E vështirë",
+};
+
+export const COGNITIVE_LABEL_AL: Record<CognitiveLevel, string> = {
+  Remember: "Kujto",
+  Understand: "Kupto",
+  Apply: "Apliko",
+  Analyze: "Analizo",
+  Evaluate: "Vlerëso",
+  Create: "Krijo",
+};
+
 export type ExamSource =
   | { kind: "text"; text: string }
   | { kind: "pdf"; pdfBase64: string; fileName: string }
-  | { kind: "url"; url: string };
+  | { kind: "url"; url: string }
+  | { kind: "image"; imageBase64: string; fileName: string; mimeType: string };
+
+/** Një pyetje e provimit me vlerësim të vështirësisë dhe pikët përfundimtare. */
+export interface ExamQuestion {
+  text: string;
+  /** Pikët përfundimtare — shuma e grupit është saktësisht `maxScore`. */
+  points: number;
+  difficulty: Difficulty;
+  cognitiveLevel: CognitiveLevel;
+  /** Arsyeja arsimore e pikëve (për skemën profesionale të notimit). */
+  rationale?: string;
+}
 
 /** Një variant provimi (një grup) — i gatshëm për pamje paraprake / Word. */
 export interface ExamGroup {
   group: string; // A, B, C...
   title: string;
-  questions: { text: string; points: number }[];
+  questions: ExamQuestion[];
 }
+
+/** Pikët maksimale të zgjedhura nga mësuesi (opsionet e UI-së). */
+export const MAX_SCORE_OPTIONS = [20, 30, 50, 60, 100] as const;
 
 /** Provimi i gjeneruar (të gjitha grupet + të dhënat e kokës). */
 export interface ExamData {
@@ -112,10 +157,12 @@ export interface ExamData {
 
 export interface ExamRequest {
   source: ExamSource;
-  /** Sa variante të ndryshme provimi (një për secilin grup), 1–6. */
+  /** Sa variante të ndryshme provimi (një për secilin grup), 1–30. */
   numGroups: number;
   /** Sa pyetje të ketë secili provim. */
   numQuestions: number;
+  /** Pikët maksimale të provimit (shuma e secilit grup). */
+  maxScore: number;
   /** Tremujori: "I" | "II" | "III" ose "" (pa tremujor). Shfaqet te koka. */
   tremujori: string;
   /** Lënda (opsionale) — për emrin e skedarit dhe kokën. */
@@ -126,4 +173,33 @@ export interface ExamRequest {
   fromPage: number;
   /** Vetëm për libra me link (flipbook): deri te faqja (0 = pa kufi). */
   toPage: number;
+}
+
+// ---- Asistenti i Studimit (i bazuar vetëm te materiali) ----
+export type AssistIntent =
+  | "explain"
+  | "question"
+  | "simplify"
+  | "summary"
+  | "flashcards"
+  | "steps";
+
+export interface AssistMessage {
+  role: "user" | "assistant";
+  content: string;
+}
+
+export interface AssistRequest {
+  /** Materiali i ngarkuar (opsional). Nëse mungon, Asistenti punon si chatbot i përgjithshëm. */
+  source?: ExamSource;
+  intent: AssistIntent;
+  message: string;
+  history?: AssistMessage[];
+}
+
+export interface AssistResult {
+  intent: AssistIntent;
+  answer: string;
+  cards?: { term: string; definition: string }[];
+  steps?: { title: string; detail: string }[];
 }

@@ -2,14 +2,110 @@ import "dotenv/config";
 import express from "express";
 import fs from "fs";
 import path from "path";
+import crypto from "crypto";
 import { generateExams } from "./gemini";
 import type { ExamInput } from "./gemini";
+import { assistWithMaterial, ASSIST_INTENTS } from "./assist";
 import { fetchLessonFromUrl } from "./fetchUrl";
 import { buildExamsDocx } from "./examDocx";
+import { cleanLessonText } from "./cleanText";
+import { allocatePoints } from "./scoring";
 import { registerUser, verifyUser, makeToken, tokenEmail } from "./users";
 import type { ExamRequest, ExamData } from "../shared/types";
 
-const GROUP_LETTERS = ["A", "B", "C", "D", "E", "F"];
+const MAX_GROUPS = 30;
+
+// Etiketë grupi në stilin e kolonave Excel: A, B, …, Z, AA, AB, … (pa kufi).
+function groupLabel(i: number): string {
+  let n = i + 1;
+  let s = "";
+  while (n > 0) {
+    const r = (n - 1) % 26;
+    s = String.fromCharCode(65 + r) + s;
+    n = Math.floor((n - 1) / 26);
+  }
+  return s;
+}
+
+// Pastron fushat e lirisë (lënda/klasa/tremujori) përpara se të shkojnë te AI/Word.
+function sanitizeText(s: string): string {
+  return String(s || "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 80);
+}
+
+const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
+const ALLOWED_IMG_MIME = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/gif",
+]);
+
+// Verifikon që të dhënat e ngarkuara janë vërtet ajo që pretendojnë (magic bytes)
+// dhe brenda kufirit të madhësisë — parandalon ngarkime të gabuara ose malicioze.
+function assertValidUpload(base64: string, kind: "pdf" | "image"): void {
+  if (!base64 || typeof base64 !== "string") {
+    throw new Error(kind === "pdf" ? "PDF-ja mungon." : "Fotografia mungon.");
+  }
+  const buf = Buffer.from(base64, "base64");
+  if (buf.length === 0) {
+    throw new Error(kind === "pdf" ? "PDF-ja është bosh." : "Fotografia është bosh.");
+  }
+  if (buf.length > MAX_UPLOAD_BYTES) {
+    throw new Error("Skedari është shumë i madh (maksimum 10MB).");
+  }
+  if (kind === "pdf") {
+    if (buf.subarray(0, 5).toString("latin1") !== "%PDF-") {
+      throw new Error("Skedari nuk është një PDF i vlefshëm.");
+    }
+  } else {
+    const isJpeg = buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff;
+    const isPng =
+      buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4e && buf[3] === 0x47;
+    const head = buf.slice(0, 4).toString("latin1");
+    const isGif = head === "GIF8";
+    const isWebp =
+      head === "RIFF" && buf.slice(8, 12).toString("latin1") === "WEBP";
+    if (!isJpeg && !isPng && !isGif && !isWebp) {
+      throw new Error("Fotografia nuk është e vlefshme (përdor PNG, JPG, WEBP ose GIF).");
+    }
+  }
+}
+
+// Cache i thjeshtë në-memorie për gjenerimet (LRU). Zvogëlon thirrjet e përsëritura
+// te Gemini dhe përmirëson kohën e përgjigjes për materiale të njëjta.
+const genCache = new Map<string, ExamData>();
+const CACHE_MAX = 100;
+
+function examCacheKey(body: ExamRequest): string {
+  const s = body.source;
+  const content =
+    s.kind === "url"
+      ? `${s.url}|${body.fromPage}|${body.toPage}`
+      : s.kind === "pdf"
+        ? s.pdfBase64
+        : s.kind === "image"
+          ? s.imageBase64
+          : s.text;
+  const fingerprint = JSON.stringify({
+    kind: s.kind,
+    content,
+    ng: Math.max(1, Math.min(MAX_GROUPS, Math.round(Number(body.numGroups) || 1))),
+    nq: Math.max(1, Math.min(15, Math.round(Number(body.numQuestions) || 5))),
+    ms: Math.max(1, Math.min(1000, Math.round(Number(body.maxScore) || 100))),
+  });
+  return crypto.createHash("sha256").update(fingerprint).digest("hex");
+}
+
+function cacheGet(k: string): ExamData | undefined {
+  return genCache.get(k);
+}
+function cacheSet(k: string, v: ExamData): void {
+  if (genCache.size >= CACHE_MAX) genCache.delete(genCache.keys().next().value as string);
+  genCache.set(k, v);
+}
 
 function authedEmail(req: express.Request): string | null {
   const m = (req.headers.authorization || "").match(/^Bearer (.+)$/);
@@ -135,6 +231,21 @@ app.post("/api/exam-generate", async (req, res) => {
       return;
     }
 
+    // Header-i i provimit (lënda/klasa/tremujori) — i pastër, pa ndikuar te cache-i i AI-së.
+    const head = {
+      lenda: sanitizeText(body.lenda),
+      klasa: sanitizeText(body.klasa),
+      tremujori: sanitizeText(body.tremujori),
+    };
+
+    // Nëse ky material është gjeneruar më parë (i njëjti përmbajtje + opsione), kthejmë cache-in.
+    const cacheKey = examCacheKey(body);
+    const cached = cacheGet(cacheKey);
+    if (cached) {
+      res.json({ ...cached, ...head });
+      return;
+    }
+
     let src: ExamInput;
     if (body.source.kind === "url") {
       const fetched = await fetchLessonFromUrl(body.source.url, {
@@ -146,23 +257,47 @@ app.post("/api/exam-generate", async (req, res) => {
           ? { kind: "pdf", pdfBase64: fetched.pdfBase64 }
           : { kind: "text", text: fetched.text };
     } else if (body.source.kind === "pdf") {
+      assertValidUpload(body.source.pdfBase64, "pdf");
       src = { kind: "pdf", pdfBase64: body.source.pdfBase64 };
+    } else if (body.source.kind === "image") {
+      assertValidUpload(body.source.imageBase64, "image");
+      const mime = ALLOWED_IMG_MIME.has(body.source.mimeType)
+        ? body.source.mimeType
+        : "image/jpeg";
+      src = {
+        kind: "image",
+        imageBase64: body.source.imageBase64,
+        mimeType: mime,
+      };
     } else {
-      src = { kind: "text", text: body.source.text };
+      src = { kind: "text", text: cleanLessonText(body.source.text) };
     }
 
-    const n = Math.max(1, Math.min(6, Math.round(Number(body.numGroups) || 1)));
+    const n = Math.max(1, Math.min(MAX_GROUPS, Math.round(Number(body.numGroups) || 1)));
+    const maxScore = Math.max(1, Math.min(1000, Math.round(Number(body.maxScore) || 100)));
     const generated = await generateExams(src, n, { numQuestions: body.numQuestions });
 
+    // Llogarit pikët përfundimtare sipas peshës së vështirësisë — shuma saktë = maxScore.
     const data: ExamData = {
-      lenda: (body.lenda || "").trim(),
-      klasa: (body.klasa || "").trim(),
-      tremujori: (body.tremujori || "").trim(),
-      exams: generated.map((e, i) => ({
-        group: GROUP_LETTERS[i] ?? String(i + 1),
-        title: e.title,
-        questions: e.questions,
-      })),
+      lenda: head.lenda,
+      klasa: head.klasa,
+      tremujori: head.tremujori,
+      exams: generated.map((e, i) => {
+        const count = e.questions.length;
+        const score = Math.max(maxScore, count); // çdo pyetje ≥ 1 pikë
+        const points = allocatePoints(score, e.questions.map((q) => q.weight));
+        return {
+          group: groupLabel(i),
+          title: e.title,
+          questions: e.questions.map((q, idx) => ({
+            text: q.text,
+            points: points[idx],
+            difficulty: q.difficulty,
+            cognitiveLevel: q.cognitiveLevel,
+            rationale: q.rationale,
+          })),
+        };
+      }),
     };
 
     // Ruaje automatikisht në disk nëse lejohet (lokalisht); në Vercel kjo dështon e injorohet.
@@ -172,7 +307,34 @@ app.post("/api/exam-generate", async (req, res) => {
       /* fs vetëm-lexim ose s'lejon shkrim — vazhdo pa ruajtje në disk */
     }
 
+    cacheSet(cacheKey, data);
     res.json(data);
+  } catch (err) {
+    fail(res, err);
+  }
+});
+
+// 1b) Asistenti i Studimit — i bazuar VETËM te materiali i ngarkuar (pa login).
+app.post("/api/assist", async (req, res) => {
+  try {
+    if (!hasKey(res)) return;
+    const body = req.body || {};
+    const src = body.source;
+    if (src && !src.kind) {
+      res.status(400).json({ error: "Materiali i dhënë është i pavlefshëm." });
+      return;
+    }
+    const intent = ASSIST_INTENTS.includes(body.intent) ? body.intent : "explain";
+    if (src?.kind === "pdf") assertValidUpload(src.pdfBase64, "pdf");
+    else if (src?.kind === "image") assertValidUpload(src.imageBase64, "image");
+
+    const result = await assistWithMaterial({
+      source: src,
+      intent,
+      message: String(body.message || ""),
+      history: Array.isArray(body.history) ? body.history.slice(-12) : [],
+    });
+    res.json(result);
   } catch (err) {
     fail(res, err);
   }

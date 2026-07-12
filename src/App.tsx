@@ -1,73 +1,64 @@
-import { AuthProvider, useAuth } from "./auth";
-import { UploadBox } from "./components/UploadBox";
+import { useState } from "react";
+import { AuthProvider } from "./auth";
+import { ExamBuilder } from "./components/ExamBuilder";
+import { StudyAssistant } from "./components/StudyAssistant";
+import { Dashboard } from "./components/Dashboard";
+import { Topbar } from "./components/Topbar";
+import { Sidebar } from "./components/Sidebar";
+import { Landing } from "./components/Landing";
 
-function Header() {
-  const { isAuthed, email, logout, openAuth } = useAuth();
-  const toTop = () => window.scrollTo({ top: 0, behavior: "smooth" });
+export type View = "home" | "dashboard" | "exam" | "assistant";
 
-  return (
-    <header className="sticky top-0 z-20 border-b border-line bg-card/85 backdrop-blur-md">
-      <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-3">
-        <button onClick={toTop} className="flex items-center gap-2">
-          <span className="font-display text-xl font-bold tracking-tight text-ink">
-            GTL<span className="text-accent">.ai</span>
-          </span>
-        </button>
-
-        {isAuthed ? (
-          <div className="flex items-center gap-3 text-sm">
-            <span className="hidden items-center gap-2 text-ink-soft sm:flex">
-              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-brand-gradient text-xs font-bold uppercase text-white">
-                {(email ?? "?").charAt(0)}
-              </span>
-              <span className="max-w-[14rem] truncate font-medium text-ink">{email}</span>
-            </span>
-            <button onClick={logout} className="font-medium text-ink-soft hover:text-ink">
-              Dil
-            </button>
-          </div>
-        ) : (
-          <button onClick={openAuth} className="btn-ghost py-2 text-sm">
-            Hyr
-          </button>
-        )}
-      </div>
-    </header>
-  );
-}
+const TITLES: Record<View, string> = {
+  home: "GTL.ai",
+  dashboard: "Dashboard",
+  exam: "Krijo Provim",
+  assistant: "Asistenti i Studimit",
+};
 
 export default function App() {
+  const [view, setView] = useState<View>("home");
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  const navigate = (v: View) => {
+    setView(v);
+    setSidebarOpen(false);
+  };
+
   return (
     <AuthProvider>
-      <div className="min-h-screen">
-        <Header />
+      <div className="relative min-h-screen overflow-hidden bg-background">
+        {/* Sfond modern me "glow" orbs */}
+        <div className="pointer-events-none absolute inset-0 -z-10">
+          <div className="absolute -left-40 -top-40 h-[36rem] w-[36rem] rounded-full bg-royal/20 blur-[130px]" />
+          <div className="absolute -right-40 top-1/4 h-[32rem] w-[32rem] rounded-full bg-primary/20 blur-[130px]" />
+          <div className="absolute bottom-0 left-1/4 h-[30rem] w-[30rem] rounded-full bg-accent/10 blur-[130px]" />
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(124,92,252,0.06),transparent_60%)]" />
+        </div>
 
-        <main className="mx-auto max-w-3xl px-6 py-12 sm:py-16">
-          {/* Hero */}
-          <div className="mb-11 text-center animate-fade-up">
-            <img
-              src="/logo.jpg"
-              alt="GTL.ai — Generate Tests and Lessons"
-              className="mx-auto mb-7 h-24 w-auto animate-sway rounded-2xl border border-line bg-white shadow-card sm:h-28"
+        <Topbar title={TITLES[view]} onMenu={() => setSidebarOpen((o) => !o)} onNavigate={navigate} />
+
+        {view === "home" ? (
+          <Landing onNavigate={navigate} />
+        ) : (
+          <div className="mx-auto flex max-w-7xl">
+            <Sidebar
+              view={view}
+              onNavigate={navigate}
+              open={sidebarOpen}
+              onClose={() => setSidebarOpen(false)}
             />
-            <span className="chip mb-5">Generate Tests &amp; Lessons</span>
-            <h1 className="mx-auto max-w-2xl text-4xl font-bold leading-[1.1] text-ink sm:text-5xl">
-              Gjenero provime profesionale,{" "}
-              <span className="text-gradient">gati për printim</span>.
-            </h1>
-            <p className="mx-auto mt-5 max-w-xl text-[15px] leading-relaxed text-ink-soft">
-              Ngarko një PDF, ngjit tekstin ose vendos linkun e librit. GTL.ai ndërton një
-              provim Word (.docx) me grupe, pikë sipas vështirësisë dhe tabelë notimi.
-            </p>
+            <main key={view} className="min-w-0 flex-1 animate-fade-up px-4 py-8 sm:px-8">
+              {view === "dashboard" ? (
+                <Dashboard onNavigate={navigate} />
+              ) : view === "exam" ? (
+                <ExamBuilder />
+              ) : (
+                <StudyAssistant />
+              )}
+            </main>
           </div>
-
-          <UploadBox />
-        </main>
-
-        <footer className="border-t border-line py-8 text-center text-sm text-ink-soft">
-          <span className="font-display font-semibold text-ink">GTL.ai</span> · Generate
-          Tests and Lessons · React + Google Gemini
-        </footer>
+        )}
       </div>
     </AuthProvider>
   );

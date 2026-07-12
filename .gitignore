@@ -8,3 +8,5 @@ dist
 users.json
 .authsecret
 provimet/
+*.tsbuildinfo
+.claude/

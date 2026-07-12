@@ -1,4 +1,4 @@
-import type { ExamRequest, ExamData } from "../shared/types";
+import type { ExamRequest, ExamData, AssistRequest, AssistResult } from "../shared/types";
 
 export interface AuthResult {
   token: string;
@@ -62,6 +62,11 @@ function examFileName(data: ExamData): string {
   if (data.tremujori?.trim()) parts.push("Tremujori " + data.tremujori.trim());
   const name = (parts.join(" - ") || "Provim").replace(/[\\/:*?"<>|]+/g, "").trim();
   return name + ".docx";
+}
+
+/** Asistenti i Studimit — pyetje e bazuar vetëm te materiali i ngarkuar. */
+export async function assist(req: AssistRequest): Promise<AssistResult> {
+  return postJson<AssistResult>("/api/assist", req, "Asistenti nuk u përgjigj.");
 }
 
 /** Shkarkon provimin si Word (.docx) nga të dhënat e gjeneruara. Kërkon token (login). */

@@ -1,12 +1,11 @@
 import {
   createContext,
   useContext,
-  useEffect,
   useRef,
   useState,
   type ReactNode,
 } from "react";
-import { AuthBox } from "./components/AuthBox";
+import { AuthModal } from "./components/AuthModal";
 
 type AuthCtx = {
   token: string | null;
@@ -73,43 +72,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   return (
     <Ctx.Provider value={{ token, email, isAuthed: !!token, logout, requireAuth, openAuth }}>
       {children}
-      {open && <AuthModal onClose={close} onAuth={handleAuth} />}
+      <AuthModal open={open} onClose={close} onAuth={handleAuth} />
     </Ctx.Provider>
-  );
-}
-
-function AuthModal({
-  onClose,
-  onAuth,
-}: {
-  onClose: () => void;
-  onAuth: (token: string, email: string) => void;
-}) {
-  // Bllokon skroll-in e faqes + mbyll me Escape ndërsa modali është hapur.
-  useEffect(() => {
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
-    window.addEventListener("keydown", onKey);
-    return () => {
-      document.body.style.overflow = prev;
-      window.removeEventListener("keydown", onKey);
-    };
-  }, [onClose]);
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in">
-      <div className="absolute inset-0 bg-ink/45 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative z-10 w-full max-w-sm rounded-2xl border border-line bg-card p-6 shadow-card animate-fade-up">
-        <button
-          onClick={onClose}
-          aria-label="Mbyll"
-          className="absolute right-3.5 top-3.5 flex h-7 w-7 items-center justify-center rounded-full text-ink-soft transition hover:bg-paper2 hover:text-ink"
-        >
-          ✕
-        </button>
-        <AuthBox onAuth={onAuth} />
-      </div>
-    </div>
   );
 }

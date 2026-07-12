@@ -1,6 +1,8 @@
 // Merr përmbajtjen e një mësimi/libri nga një link (URL).
 // Mbështet: PDF direkt, faqe interneti (HTML), dhe linke publike të Google Drive.
 
+import { cleanLessonText } from "./cleanText";
+
 type Fetched =
   | { kind: "pdf"; pdfBase64: string }
   | { kind: "text"; text: string };
@@ -161,7 +163,7 @@ export async function fetchLessonFromUrl(
             .join("\n\n")
             .trim();
           if (bookText.length > 50) {
-            return { kind: "text", text: bookText.slice(0, 200000) };
+            return { kind: "text", text: cleanLessonText(bookText.slice(0, 200000)) };
           }
         }
       }
@@ -170,13 +172,13 @@ export async function fetchLessonFromUrl(
     }
   }
 
-  const text = htmlToText(raw);
+  const text = cleanLessonText(htmlToText(raw));
   if (text.trim().length < 40) {
     throw new Error(
       "Nuk u gjet tekst i lexueshëm te linku. Nëse është libër digjital (flipbook) që s'u lexua, provo ta hapësh dhe të kopjosh tekstin, ose përdor PDF-në.",
     );
   }
 
-  // Kufizo gjatësinë që të kontrollojmë koston e tokenave.
+  // Kufizo gjatësinë që të kontrollojmë kosten e tokenave.
   return { kind: "text", text: text.slice(0, 120000) };
 }

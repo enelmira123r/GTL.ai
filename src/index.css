@@ -3,52 +3,52 @@
 @tailwind utilities;
 
 @layer base {
+  * {
+    @apply border-border;
+  }
   html {
     scroll-behavior: smooth;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
   }
   body {
-    @apply bg-paper text-ink font-sans antialiased;
-    background-image: radial-gradient(
-      62rem 34rem at 50% -12%,
-      rgba(18, 160, 194, 0.1),
-      transparent 70%
-    );
-    background-attachment: fixed;
+    @apply bg-background text-foreground font-sans antialiased;
   }
-  h1,
-  h2,
-  h3 {
+  h1, h2, h3, h4 {
     @apply font-display tracking-tight;
   }
-  textarea,
-  input,
-  button,
-  select {
-    @apply font-sans;
+  ::selection {
+    @apply bg-primary/30 text-foreground;
+  }
+  /* Scrollbar modern për sfondin e errët */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: #2a3650 transparent;
+  }
+  *::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  *::-webkit-scrollbar-thumb {
+    background: #2a3650;
+    border-radius: 9999px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+  }
+  *::-webkit-scrollbar-thumb:hover {
+    background: #3a4a6b;
+    background-clip: padding-box;
   }
 }
 
-@layer components {
-  .btn {
-    @apply inline-flex items-center justify-center gap-2 rounded-lg font-semibold
-      transition-all duration-150 disabled:cursor-not-allowed disabled:opacity-50;
-  }
-  .btn-primary {
-    @apply btn bg-brand-gradient px-6 py-2.5 font-semibold text-white shadow-glow
-      hover:brightness-105 active:brightness-95;
-  }
-  .btn-ghost {
-    @apply btn border border-line bg-card px-5 py-2.5 text-ink
-      hover:border-accent/60 hover:text-accent-dark;
-  }
-  .card {
-    @apply rounded-2xl border border-line bg-card shadow-card;
-  }
-  .chip {
-    @apply inline-flex items-center gap-1.5 rounded-full border border-accent/30 bg-accent/10
-      px-3 py-1 text-xs font-semibold uppercase tracking-wider text-accent-dark;
-  }
+@layer utilities {
   .text-gradient {
-    @apply bg-brand-gradient bg-clip-text text-transparent;
+    @apply bg-gradient-to-r from-royal via-primary to-accent bg-clip-text text-transparent;
+  }
+  .glass {
+    @apply border border-white/[0.06] bg-card/70 backdrop-blur-xl;
+  }
+  .glow-ring {
+    box-shadow: 0 0 0 1px rgba(124, 92, 252, 0.25), 0 12px 40px -16px rgba(124, 92, 252, 0.45);
   }
 }

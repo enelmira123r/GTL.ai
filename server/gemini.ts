@@ -11,6 +11,8 @@ import type {
   GenerateResult,
   GradeRequest,
   GradeResult,
+  Difficulty,
+  CognitiveLevel,
 } from "../shared/types";
 
 const MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
@@ -24,7 +26,7 @@ function getGenAI(): GoogleGenerativeAI {
   return _genAI;
 }
 
-type Part = { text: string } | { inlineData: { data: string; mimeType: string } };
+export type Part = { text: string } | { inlineData: { data: string; mimeType: string } };
 
 // ---- Skemat JSON (format Gemini) ----
 const GENERATE_SCHEMA = {
@@ -114,9 +116,20 @@ const EXAM_SCHEMA = {
         type: "object",
         properties: {
           text: { type: "string" },
-          points: { type: "integer" },
+          difficulty: {
+            type: "string",
+            format: "enum",
+            enum: ["easy", "medium", "hard"],
+          },
+          cognitiveLevel: {
+            type: "string",
+            format: "enum",
+            enum: ["Remember", "Understand", "Apply", "Analyze", "Evaluate", "Create"],
+          },
+          weight: { type: "number" },
+          rationale: { type: "string" },
         },
-        required: ["text", "points"],
+        required: ["text", "difficulty", "cognitiveLevel", "weight", "rationale"],
       },
     },
   },
@@ -136,9 +149,9 @@ function isTransient(err: unknown): boolean {
   );
 }
 
-async function runJson(
+export async function runJson(
   system: string,
-  schema: object,
+  schema: object | null,
   parts: Part[],
   temperature: number,
   maxOutputTokens = 8192,
@@ -150,8 +163,12 @@ async function runJson(
       model: modelName,
       systemInstruction: system,
       generationConfig: {
-        responseMimeType: "application/json",
-        responseSchema: schema as never, // skema imponon strukturën e JSON-it
+        ...(schema
+          ? {
+              responseMimeType: "application/json",
+              responseSchema: schema as never,
+            }
+          : { responseMimeType: "text/plain" }),
         maxOutputTokens,
         temperature,
       },
@@ -265,24 +282,65 @@ export async function gradeOpenAnswers(req: GradeRequest): Promise<GradeResult> 
 // ---- Gjenerimi i provimit Word (.docx) ----
 export type ExamInput =
   | { kind: "text"; text: string }
-  | { kind: "pdf"; pdfBase64: string };
+  | { kind: "pdf"; pdfBase64: string }
+  | { kind: "image"; imageBase64: string; mimeType: string };
+
+export interface ExamQuestionMeta {
+  text: string;
+  difficulty: Difficulty;
+  cognitiveLevel: CognitiveLevel;
+  /** Pesha relative e kompleksitetit (1–10) — sistemi llogarit pikët prej saj. */
+  weight: number;
+  /** Arsyeja arsimore e peshës (për skemën e notimit). */
+  rationale: string;
+}
 
 export interface ExamContent {
   title: string;
-  questions: { text: string; points: number }[];
+  questions: ExamQuestionMeta[];
 }
 
-// Pikët varen nga vështirësia e secilës pyetje — pa total fiks. Vetëm pastrojmë vlerat.
+const VALID_DIFF: Difficulty[] = ["easy", "medium", "hard"];
+const VALID_COG: CognitiveLevel[] = [
+  "Remember",
+  "Understand",
+  "Apply",
+  "Analyze",
+  "Evaluate",
+  "Create",
+];
+
+// Pastron metadatat e çdo pyetjeje; pesha dhe nivelet kufizohen në vlera të vlefshme.
 function sanitizeExam(raw: {
   title?: string;
-  questions?: { text?: string; points?: number }[];
+  questions?: {
+    text?: string;
+    difficulty?: string;
+    cognitiveLevel?: string;
+    weight?: number;
+    rationale?: string;
+  }[];
 }): ExamContent {
   const qs = (raw.questions || [])
     .filter((q) => q && q.text)
-    .map((q) => ({
-      text: String(q.text),
-      points: Math.min(20, Math.max(1, Math.round(Number(q.points) || 1))),
-    }));
+    .map((q) => {
+      const difficulty = VALID_DIFF.includes(q.difficulty as Difficulty)
+        ? (q.difficulty as Difficulty)
+        : "medium";
+      const cognitiveLevel = VALID_COG.includes(q.cognitiveLevel as CognitiveLevel)
+        ? (q.cognitiveLevel as CognitiveLevel)
+        : "Understand";
+      let weight = Number(q.weight);
+      if (!Number.isFinite(weight)) weight = 5;
+      weight = Math.min(10, Math.max(1, weight));
+      return {
+        text: String(q.text),
+        difficulty,
+        cognitiveLevel,
+        weight,
+        rationale: String(q.rationale || ""),
+      };
+    });
   if (qs.length === 0) throw new Error("Nuk u krijuan dot pyetje për provimin.");
   return { title: raw.title || "Detyrë Përmbledhëse", questions: qs };
 }
@@ -291,14 +349,20 @@ export async function generateExam(src: ExamInput, numQuestions = 5): Promise<Ex
   const nq = Math.max(1, Math.min(15, Math.round(numQuestions || 5)));
   let instruction =
     `Krijo një provim ("detyrë përmbledhëse") bazuar ${
-      src.kind === "pdf" ? "te PDF-ja e bashkangjitur" : "te materiali më poshtë"
+      src.kind === "pdf"
+        ? "te PDF-ja e bashkangjitur"
+        : src.kind === "image"
+          ? "te fotografia e bashkangjitur të faqes së librit"
+          : "te materiali më poshtë"
     }.\n` +
     `Jep një titull të shkurtër dhe SAKTËSISHT ${nq} pyetje me përgjigje të hapur (as më shumë e as më pak). ` +
-    `Cakto pikët sipas vështirësisë së secilës pyetje: pyetje e thjeshtë → pak pikë, pyetje e vështirë → më shumë pikë. Totali del natyrshëm.`;
+    `Vlerëso vështirësinë, nivelin kognitiv, peshën (1–10) dhe arsyen për ÇDO pyetje sipas udhëzimeve në sistem. Mos cakto pikët — ato llogariten më vonë.`;
 
   const parts: Part[] = [];
   if (src.kind === "pdf") {
     parts.push({ inlineData: { mimeType: "application/pdf", data: src.pdfBase64 } });
+  } else if (src.kind === "image") {
+    parts.push({ inlineData: { mimeType: src.mimeType, data: src.imageBase64 } });
   } else {
     instruction += `\n\n=== MATERIALI I MËSIMIT ===\n${src.text}`;
   }
@@ -325,26 +389,32 @@ export async function generateExams(
   numGroups: number,
   opts: { numQuestions?: number } = {},
 ): Promise<ExamContent[]> {
-  const n = Math.max(1, Math.min(6, Math.round(numGroups || 1)));
+  const n = Math.max(1, Math.min(30, Math.round(numGroups || 1)));
   const nq = Math.max(1, Math.min(15, Math.round(opts.numQuestions || 5)));
 
   let instruction =
     `Krijo ${n} VARIANTE TË NDRYSHME provimi ("detyra përmbledhëse"), një për secilin grup, bazuar ${
-      src.kind === "pdf" ? "te PDF-ja e bashkangjitur" : "te materiali më poshtë"
+      src.kind === "pdf"
+        ? "te PDF-ja e bashkangjitur"
+        : src.kind === "image"
+          ? "te fotografia e bashkangjitur të faqes së librit"
+          : "te materiali më poshtë"
     }.\n` +
     `Çdo variant duhet të ketë një titull të shkurtër dhe SAKTËSISHT ${nq} pyetje me përgjigje të hapur (as më shumë e as më pak).\n` +
-    `Cakto pikët sipas vështirësisë së secilës pyetje: pyetje e thjeshtë → pak pikë (p.sh. 2–3), pyetje e vështirë → më shumë pikë (p.sh. 6–10). Totali del natyrshëm nga shuma.\n` +
+    `Vlerëso vështirësinë, nivelin kognitiv, peshën (1–10) dhe arsyen për ÇDO pyetje sipas udhëzimeve në sistem. Mos cakto pikët — ato llogariten më vonë.\n` +
     `Variantet duhet të jenë TË NDRYSHME nga njëri-tjetri (pyetje dhe formulime të ndryshme), por të mbulojnë të njëjtën temë në të njëjtin nivel vështirësie.`;
 
   const parts: Part[] = [];
   if (src.kind === "pdf") {
     parts.push({ inlineData: { mimeType: "application/pdf", data: src.pdfBase64 } });
+  } else if (src.kind === "image") {
+    parts.push({ inlineData: { mimeType: src.mimeType, data: src.imageBase64 } });
   } else {
     instruction += `\n\n=== MATERIALI I MËSIMIT ===\n${src.text}`;
   }
   parts.push({ text: instruction });
 
-  const text = await runJson(SYSTEM_EXAM, EXAM_MULTI_SCHEMA, parts, 0.85, 16000);
+  const text = await runJson(SYSTEM_EXAM, EXAM_MULTI_SCHEMA, parts, 0.85, 32000);
   const raw = JSON.parse(text) as { exams?: { title?: string; questions?: { text?: string; points?: number }[] }[] };
   const rawExams = Array.isArray(raw.exams) ? raw.exams : [];
 

@@ -4,7 +4,7 @@ GTL.ai (*Generate Tests and Lesson*) merr përmbajtjen e një **libri/mësimi** 
 
 ## Çfarë bën
 - 📚 **Bibliotekë librash** — zgjidh direkt nga të gjithë librat digjitalë të botimepegi.al (klasat 1–12).
-- 📄 **Hyrje fleksibël** — libër me link (flipbook), PDF, ose tekst i ngjitur; appi e merr vetë përmbajtjen.
+- 📄 **Hyrje fleksibël** — libër me link (flipbook), PDF, tekst i ngjitur, ose **foto e një faqeje libri** (bërje foto me kamerën ose ngarkim imazhi); Gemini lexon tekstin nga imazhi.
 - 🧩 **Provim me grupe** — gjeneron deri në 6 variante të ndryshme (Grupi A, B, C…), secili në faqe veçmas.
 - 🎯 **Pikë sipas vështirësisë** — çdo pyetje merr pikë sipas peshës; totali e tabela e notimit dalin natyrshëm.
 - 🗓️ **Tremujori & faqe** — cakto tremujorin dhe kufizoje provimin te një interval faqesh të librit.
