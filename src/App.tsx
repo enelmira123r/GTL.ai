@@ -6,12 +6,15 @@ import { Dashboard } from "./components/Dashboard";
 import { Topbar } from "./components/Topbar";
 import { Sidebar } from "./components/Sidebar";
 import { Landing } from "./components/Landing";
+import { LoginPage } from "./components/LoginPage";
 import { SavedTests } from "./components/SavedTests";
 import { StudentDashboard } from "./components/StudentDashboard";
 import { useAuth } from "./auth";
 
 export type View =
   | "home"
+  | "login"
+  | "register"
   | "dashboard"
   | "exam"
   | "assistant"
@@ -28,6 +31,8 @@ export type View =
 
 const TITLES: Record<View, string> = {
   home: "GTL.ai",
+  login: "Hyr",
+  register: "Regjistrohu",
   dashboard: "Dashboard",
   exam: "Krijo Provim",
   assistant: "Asistenti i Studimit",
@@ -97,6 +102,8 @@ export default function App() {
 
         {view === "home" ? (
           <Landing onNavigate={navigate} />
+        ) : view === "login" ? (
+          <LoginPage onNavigate={(v) => navigate(v as View)} />
         ) : isStudentMode && isStudentView(view) ? (
           <div className="mx-auto flex max-w-7xl">
             <Sidebar
