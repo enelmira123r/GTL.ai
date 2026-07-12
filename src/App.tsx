@@ -7,8 +7,24 @@ import { Topbar } from "./components/Topbar";
 import { Sidebar } from "./components/Sidebar";
 import { Landing } from "./components/Landing";
 import { SavedTests } from "./components/SavedTests";
+import { StudentDashboard } from "./components/StudentDashboard";
+import { useAuth } from "./auth";
 
-export type View = "home" | "dashboard" | "exam" | "assistant" | "tests";
+export type View =
+  | "home"
+  | "dashboard"
+  | "exam"
+  | "assistant"
+  | "tests"
+  | "student-dashboard"
+  | "student-lesson"
+  | "student-quiz"
+  | "student-flashcards"
+  | "student-practice"
+  | "student-progress"
+  | "student-history"
+  | "student-goals"
+  | "student-achievements";
 
 const TITLES: Record<View, string> = {
   home: "GTL.ai",
@@ -16,23 +32,60 @@ const TITLES: Record<View, string> = {
   exam: "Krijo Provim",
   assistant: "Asistenti i Studimit",
   tests: "Provimet e ruajtura",
+  "student-dashboard": "Dashboard - Nxënës",
+  "student-lesson": "Mësimet",
+  "student-quiz": "Kuize",
+  "student-flashcards": "Fletë Studimi",
+  "student-practice": "Ushtrime",
+  "student-progress": "Përparimi",
+  "student-history": "Historia",
+  "student-goals": "Qëllimet",
+  "student-achievements": "Arritjet",
 };
 
+const TEACHER_VIEWS: View[] = ["dashboard", "exam", "assistant", "tests"];
+const STUDENT_VIEWS: View[] = [
+  "student-dashboard",
+  "student-lesson",
+  "student-quiz",
+  "student-flashcards",
+  "student-practice",
+  "student-progress",
+  "student-history",
+  "student-goals",
+  "student-achievements",
+];
+
+function isStudentView(v: View): boolean {
+  return v.startsWith("student-");
+}
+
 export default function App() {
-  const [view, setView] = useState<View>("home");
+  const [view, setViewState] = useState<View>("home");
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  // Shfaq menynë e historikut vetëm pasi të jetë gjeneruar të paktën një provim.
   const [hasGenerated, setHasGenerated] = useState(false);
 
-  const navigate = (v: View) => {
-    setView(v);
+  const { role, isAuthed } = useAuth();
+
+  function navigate(v: View) {
+    setViewState(v);
     setSidebarOpen(false);
-  };
+  }
+
+  if (role === "student" && isAuthed) {
+    if (!isStudentView(view) && view !== "assistant") {
+      setViewState("student-dashboard");
+    }
+  }
+
+  const showTeacherSidebar = role === "teacher" || !isStudentView(view);
+  const showStudentSidebar = role === "student" && isStudentView(view);
+
+  const isStudentMode = role === "student" && isAuthed;
 
   return (
     <AuthProvider>
       <div className="relative min-h-screen overflow-hidden bg-background">
-        {/* Sfond modern me "glow" orbs */}
         <div className="pointer-events-none absolute inset-0 -z-10">
           <div className="absolute -left-40 -top-40 h-[36rem] w-[36rem] rounded-full bg-royal/20 blur-[130px]" />
           <div className="absolute -right-40 top-1/4 h-[32rem] w-[32rem] rounded-full bg-primary/20 blur-[130px]" />
@@ -44,6 +97,20 @@ export default function App() {
 
         {view === "home" ? (
           <Landing onNavigate={navigate} />
+        ) : isStudentMode && isStudentView(view) ? (
+          <div className="mx-auto flex max-w-7xl">
+            <Sidebar
+              view={view}
+              onNavigate={navigate}
+              open={sidebarOpen}
+              onClose={() => setSidebarOpen(false)}
+              showHistory={hasGenerated}
+              mode="student"
+            />
+            <main key={view} className="min-w-0 flex-1 animate-fade-up px-4 py-8 sm:px-8">
+              <StudentDashboard view={view} onNavigate={navigate} />
+            </main>
+          </div>
         ) : (
           <div className="mx-auto flex max-w-7xl">
             <Sidebar
@@ -52,6 +119,7 @@ export default function App() {
               open={sidebarOpen}
               onClose={() => setSidebarOpen(false)}
               showHistory={hasGenerated}
+              mode="teacher"
             />
             <main key={view} className="min-w-0 flex-1 animate-fade-up px-4 py-8 sm:px-8">
               {view === "dashboard" ? (

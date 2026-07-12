@@ -1,20 +1,17 @@
 // Tipa të përbashkët mes frontend-it dhe serverit.
 
+export type Role = "teacher" | "student";
+
 export type QuestionType = "multiple_choice" | "true_false" | "open";
 
 export interface Question {
   id: number;
   type: QuestionType;
   question: string;
-  /** 4 opsione për 'multiple_choice'; 2 për 'true_false'; [] për 'open'. */
   options: string[];
-  /** Indeksi i përgjigjes së saktë (nga 0). -1 për 'open'. */
   correctIndex: number;
-  /** Shpjegim pse përgjigjja e saktë është e saktë. */
   explanation: string;
-  /** Vetëm për 'open': pikat kyçe që pritet të mbulojë përgjigjja. */
   keyPoints: string[];
-  /** Vetëm për 'open': shembull i një përgjigjeje të plotë. */
   modelAnswer: string;
 }
 
@@ -78,7 +75,6 @@ export interface GradeRequest {
 
 export interface GradeItem {
   id: number;
-  /** 1 = e plotë, 0.5 = pjesërisht, 0 = e gabuar. */
   score: number;
   feedback: string;
 }
@@ -89,10 +85,8 @@ export interface GradeResult {
 
 // ---- Provimi Word (.docx) ----
 
-/** Vështirësia e një pyetjeje (vlerësuar nga AI). */
 export type Difficulty = "easy" | "medium" | "hard";
 
-/** Nivelet kognitive sipas Taksonomisë së Bloom-it. */
 export const COGNITIVE_LEVELS = [
   "Remember",
   "Understand",
@@ -124,38 +118,30 @@ export type ExamSource =
   | { kind: "url"; url: string }
   | { kind: "image"; imageBase64: string; fileName: string; mimeType: string };
 
-/** Një pyetje e provimit me vlerësim të vështirësisë dhe pikët përfundimtare. */
 export interface ExamQuestion {
   text: string;
-  /** Pikët përfundimtare — shuma e grupit është saktësisht `maxScore`. */
   points: number;
   difficulty: Difficulty;
   cognitiveLevel: CognitiveLevel;
-  /** Arsyeja arsimore e pikëve (për skemën profesionale të notimit). */
   rationale?: string;
 }
 
-/** Një variant provimi (një grup) — i gatshëm për pamje paraprake / Word. */
 export interface ExamGroup {
-  group: string; // A, B, C...
+  group: string;
   title: string;
   questions: ExamQuestion[];
 }
 
-/** Pikët maksimale të zgjedhura nga mësuesi (opsionet e UI-së). */
 export const MAX_SCORE_OPTIONS = [20, 30, 50, 60, 100] as const;
 
-/** Provimi i gjeneruar (të gjitha grupet + të dhënat e kokës). */
 export interface ExamData {
   lenda: string;
   klasa: string;
   tremujori: string;
   exams: ExamGroup[];
-  /** Rruga ku u ruajt automatikisht në PC (vetëm te përgjigjja e gjenerimit). */
   savedPath?: string;
 }
 
-// ---- Provimet e ruajtura (historiku i mësuesit) ----
 export interface SavedTest {
   id: string;
   email: string;
@@ -165,38 +151,26 @@ export interface SavedTest {
   tremujori: string;
   numGroups: number;
   numQuestions: number;
-  /** Koha e krijimit (ISO string). */
   createdAt: string;
-  /** Të dhënat e plota të provimit — për ri-hapje dhe shkarkim Word. */
   data: ExamData;
-  /** Rruga e skedarit .docx në disk (vetëm lokalisht). */
   savedPath?: string;
 }
 
-/** Variant i lehtë i SavedTest për listimin (pa `data` për ngarkesë më të vogël). */
 export type SavedTestSummary = Omit<SavedTest, "data">;
 
 export interface ExamRequest {
   source: ExamSource;
-  /** Sa variante të ndryshme provimi (një për secilin grup), 1–30. */
   numGroups: number;
-  /** Sa pyetje të ketë secili provim. */
   numQuestions: number;
-  /** Pikët maksimale të provimit (shuma e secilit grup). */
   maxScore: number;
-  /** Tremujori: "I" | "II" | "III" ose "" (pa tremujor). Shfaqet te koka. */
   tremujori: string;
-  /** Lënda (opsionale) — për emrin e skedarit dhe kokën. */
   lenda: string;
-  /** Klasa (opsionale) — për emrin e skedarit dhe kokën. */
   klasa: string;
-  /** Vetëm për libra me link (flipbook): nga faqja (0 = pa kufi). */
   fromPage: number;
-  /** Vetëm për libra me link (flipbook): deri te faqja (0 = pa kufi). */
   toPage: number;
 }
 
-// ---- Asistenti i Studimit (i bazuar vetëm te materiali) ----
+// ---- Asistenti i Studimit ----
 export type AssistIntent =
   | "explain"
   | "question"
@@ -211,7 +185,6 @@ export interface AssistMessage {
 }
 
 export interface AssistRequest {
-  /** Materiali i ngarkuar (opsional). Nëse mungon, Asistenti punon si chatbot i përgjithshëm. */
   source?: ExamSource;
   intent: AssistIntent;
   message: string;
@@ -223,4 +196,174 @@ export interface AssistResult {
   answer: string;
   cards?: { term: string; definition: string }[];
   steps?: { title: string; detail: string }[];
+}
+
+// ---- Virtual Teachers ----
+export interface VirtualTeacher {
+  id: string;
+  name: string;
+  subject: string;
+  emoji: string;
+  personality: string;
+  style: string;
+}
+
+export interface LessonResult {
+  title: string;
+  summary: string;
+  keyPoints: string[];
+  terms: { term: string; definition: string }[];
+  examples: string[];
+  practiceExercise: { question: string; hint: string; answer: string }[];
+  quickQuiz: {
+    question: string;
+    options: string[];
+    correctIndex: number;
+    explanation: string;
+  }[];
+}
+
+export interface QuizResult {
+  title: string;
+  questions: {
+    id: number;
+    type: "multiple_choice" | "true_false";
+    question: string;
+    options: string[];
+    correctIndex: number;
+    explanation: string;
+  }[];
+}
+
+export interface QuizGradeResult {
+  score: number;
+  total: number;
+  results: {
+    questionId: number;
+    correct: boolean;
+    feedback: string;
+    correctAnswer: string;
+  }[];
+  summary: string;
+}
+
+export interface FlashcardResult {
+  topic: string;
+  cards: { front: string; back: string }[];
+}
+
+export interface PracticeResult {
+  title: string;
+  problems: {
+    id: number;
+    question: string;
+    hint: string;
+    solution: string;
+    difficulty: "easy" | "medium" | "hard";
+  }[];
+}
+
+// ---- Student Progress ----
+export type ActivityType =
+  | "lesson"
+  | "quiz"
+  | "quiz_submit"
+  | "flashcards"
+  | "practice"
+  | "achievement";
+
+export interface Activity {
+  id: string;
+  email: string;
+  type: ActivityType;
+  subject: string;
+  topic: string;
+  createdAt: string;
+  score?: number;
+  total?: number;
+}
+
+export interface SubjectProgress {
+  subject: string;
+  totalActivities: number;
+  quizzesTaken: number;
+  totalScore: number;
+  totalPossible: number;
+  perfectQuizzes: number;
+  practices: number;
+  flashcardsReviewed: number;
+  lastActiveAt: string;
+  streakDays: number;
+  lastStreakDate: string;
+}
+
+export interface ProgressReport {
+  subjects: string[];
+  totalActivities: number;
+  totalQuizzes: number;
+  perfectQuizzes: number;
+  currentStreak: number;
+  totalScore: number;
+  totalPossible: number;
+  accuracy: number;
+  bySubject: Record<string, SubjectProgress>;
+  recentActivities: Activity[];
+}
+
+export interface DailyGoal {
+  id: string;
+  email: string;
+  dailyTarget: number;
+  completedToday: number;
+  updatedAt: string;
+}
+
+export interface Achievement {
+  id: string;
+  name: string;
+  description: string;
+  icon: string;
+  unlocked: boolean;
+  unlockedAt?: string;
+}
+
+// ---- Saved Student Content ----
+export interface Lesson {
+  id: string;
+  email: string;
+  subject: string;
+  topic: string;
+  teacherId: string;
+  data: LessonResult;
+  createdAt: string;
+}
+
+export interface Quiz {
+  id: string;
+  email: string;
+  subject: string;
+  topic: string;
+  teacherId: string;
+  data: QuizResult;
+  createdAt: string;
+}
+
+export interface Flashcard {
+  id: string;
+  email: string;
+  subject: string;
+  topic: string;
+  teacherId: string;
+  data: FlashcardResult;
+  createdAt: string;
+}
+
+export interface Practice {
+  id: string;
+  email: string;
+  subject: string;
+  topic: string;
+  teacherId: string;
+  data: PracticeResult;
+  createdAt: string;
 }

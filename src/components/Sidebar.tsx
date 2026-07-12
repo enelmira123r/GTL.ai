@@ -10,7 +10,16 @@ import {
   History,
   LogOut,
   X,
+  BookOpen,
+  ClipboardList,
+  Layers,
+  PenTool,
+  BarChart3,
+  Target,
+  Trophy,
 } from "lucide-react";
+
+type SidebarMode = "teacher" | "student";
 
 export function Sidebar({
   view,
@@ -18,16 +27,18 @@ export function Sidebar({
   open,
   onClose,
   showHistory,
+  mode = "teacher",
 }: {
   view: View;
   onNavigate: (v: View) => void;
   open: boolean;
   onClose: () => void;
   showHistory: boolean;
+  mode?: SidebarMode;
 }) {
   const { email, isAuthed, logout } = useAuth();
 
-  const ITEMS: { id: View; label: string; icon: typeof Home }[] = [
+  const TEACHER_ITEMS: { id: View; label: string; icon: typeof Home }[] = [
     { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
     { id: "exam", label: "Krijo Provim", icon: FileText },
     ...(showHistory
@@ -36,6 +47,19 @@ export function Sidebar({
     { id: "assistant", label: "Asistenti", icon: MessagesSquare },
     { id: "home", label: "Faqja kryesore", icon: Home },
   ];
+
+  const STUDENT_ITEMS: { id: View; label: string; icon: typeof Home }[] = [
+    { id: "student-dashboard", label: "Kryefaqja", icon: Home },
+    { id: "student-lesson", label: "Mësimet", icon: BookOpen },
+    { id: "student-quiz", label: "Kuize", icon: ClipboardList },
+    { id: "student-flashcards", label: "Fletë", icon: Layers },
+    { id: "student-practice", label: "Ushtrime", icon: PenTool },
+    { id: "student-progress", label: "Përparimi", icon: BarChart3 },
+    { id: "student-goals", label: "Qëllimet", icon: Target },
+    { id: "student-achievements", label: "Arritjet", icon: Trophy },
+  ];
+
+  const ITEMS = mode === "student" ? STUDENT_ITEMS : TEACHER_ITEMS;
 
   return (
     <>
@@ -98,11 +122,13 @@ export function Sidebar({
               <p className="truncate text-sm font-medium text-foreground">
                 {isAuthed ? email : "Jo i kyçur"}
               </p>
-              <p className="text-xs text-muted-foreground">Llogari mësuesi</p>
+              <p className="text-xs text-muted-foreground">
+                {mode === "student" ? "Llogari nxënësi" : "Llogari mësuesi"}
+              </p>
             </div>
             {isAuthed && (
               <button
-                onClick={logout}
+                onClick={() => { logout(); onNavigate("home"); }}
                 aria-label="Dil"
                 className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-card hover:text-danger"
               >

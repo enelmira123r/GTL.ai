@@ -1,6 +1,5 @@
-import type { View } from "../App";
 import { useAuth } from "../auth";
-import { BOOKS } from "../books";
+import type { View } from "../App";
 import { Card, CardContent, CardTitle, CardDescription } from "./ui/card";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
@@ -39,18 +38,15 @@ const QUICK = [
 
 export function Dashboard({ onNavigate }: { onNavigate: (v: View) => void }) {
   const { isAuthed, email } = useAuth();
-  const classes = [...new Set(BOOKS.map((b) => b.klasa))].sort((a, b) => Number(a) - Number(b));
 
   return (
     <div className="space-y-8">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="font-display text-2xl font-bold text-foreground">
-            Mirë se erdhe{isAuthed && email ? `, ${email.split("@")[0]}` : ""} 👋
+            Dashboard{isAuthed && email ? ` · ${email.split("@")[0]}` : ""}
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            GTL.ai — gjenerues provimesh dhe mjeti yt i studimit me AI.
-          </p>
+          <p className="mt-1 text-sm text-muted-foreground">Mirë se erdhe, Mësuese!</p>
         </div>
         {isAuthed ? (
           <Badge variant="success">Identifikuar</Badge>
@@ -66,19 +62,19 @@ export function Dashboard({ onNavigate }: { onNavigate: (v: View) => void }) {
               <BookOpen className="h-5 w-5" />
             </div>
             <div>
-              <p className="font-display text-2xl font-bold text-foreground">{BOOKS.length}</p>
-              <p className="text-xs text-muted-foreground">Libra në bibliotekë</p>
+              <p className="font-display text-2xl font-bold text-foreground">∞</p>
+              <p className="text-xs text-muted-foreground">Materiale të ngarkuara</p>
             </div>
           </CardContent>
         </Card>
         <Card className="p-0">
           <CardContent className="flex items-center gap-4 p-5">
             <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-emerald to-accent text-white shadow-soft">
-              <GraduationCap className="h-5 w-5" />
+              <FileText className="h-5 w-5" />
             </div>
             <div>
-              <p className="font-display text-2xl font-bold text-foreground">{classes.length}</p>
-              <p className="text-xs text-muted-foreground">Klasa (1–12)</p>
+              <p className="font-display text-2xl font-bold text-foreground">New</p>
+              <p className="text-xs text-muted-foreground">Provime të gjeneruara</p>
             </div>
           </CardContent>
         </Card>
@@ -88,8 +84,8 @@ export function Dashboard({ onNavigate }: { onNavigate: (v: View) => void }) {
               <Sparkles className="h-5 w-5" />
             </div>
             <div>
-              <p className="font-display text-2xl font-bold text-foreground">∞</p>
-              <p className="text-xs text-muted-foreground">Grupe për provim</p>
+              <p className="font-display text-2xl font-bold text-foreground">AI</p>
+              <p className="text-xs text-muted-foreground">Fuqia e Inteligjencës Artificiale</p>
             </div>
           </CardContent>
         </Card>

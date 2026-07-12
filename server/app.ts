@@ -3,19 +3,29 @@ import express from "express";
 import fs from "fs";
 import path from "path";
 import crypto from "crypto";
-import { generateExams } from "./gemini";
+import { generateExams, generateLesson, generateQuiz, gradeQuiz, generateFlashcards, generatePractice, runJson } from "./gemini";
 import type { ExamInput } from "./gemini";
 import { assistWithMaterial, ASSIST_INTENTS } from "./assist";
 import { fetchLessonFromUrl } from "./fetchUrl";
 import { buildExamsDocx } from "./examDocx";
 import { cleanLessonText } from "./cleanText";
-import { registerUser, verifyUser, makeToken, tokenEmail } from "./users";
-import { saveTest, listTests, getTest, deleteTest, newId } from "./store";
-import type { ExamRequest, ExamData } from "../shared/types";
+import {
+  registerUser,
+  verifyUser,
+  changePassword,
+  requestPasswordReset,
+  resetPassword,
+  verifyEmail,
+  resendEmailCode,
+  makeToken,
+  tokenEmail,
+  tokenUser,
+} from "./users";
+import { saveTest, listTests, getTest, deleteTest, newId, listLessons, saveLesson, getLesson, listQuizzes, saveQuiz, getQuiz, listFlashcards, saveFlashcards, getFlashcards, listPractices, savePractice, getPractice, listActivities, saveActivity, listGoals, saveGoal, getAchievements, saveAchievement } from "./store";
+import type { ExamRequest, ExamData, Role, LessonResult, QuizResult, FlashcardResult, PracticeResult, ProgressReport, ActivitySummary, DailyGoal, Achievement } from "../shared/types";
 
 const MAX_GROUPS = 30;
 
-// Etiketë grupi në stilin e kolonave Excel: A, B, …, Z, AA, AB, … (pa kufi).
 function groupLabel(i: number): string {
   let n = i + 1;
   let s = "";
@@ -27,7 +37,6 @@ function groupLabel(i: number): string {
   return s;
 }
 
-// Pastron fushat e lirisë (lënda/klasa/tremujori) përpara se të shkojnë te AI/Word.
 function sanitizeText(s: string): string {
   return String(s || "")
     .replace(/\s+/g, " ")
@@ -43,8 +52,6 @@ const ALLOWED_IMG_MIME = new Set([
   "image/gif",
 ]);
 
-// Verifikon që të dhënat e ngarkuara janë vërtet ajo që pretendojnë (magic bytes)
-// dhe brenda kufirit të madhësisë — parandalon ngarkime të gabuara ose malicioze.
 function assertValidUpload(base64: string, kind: "pdf" | "image"): void {
   if (!base64 || typeof base64 !== "string") {
     throw new Error(kind === "pdf" ? "PDF-ja mungon." : "Fotografia mungon.");
@@ -74,8 +81,6 @@ function assertValidUpload(base64: string, kind: "pdf" | "image"): void {
   }
 }
 
-// Cache i thjeshtë në-memorie për gjenerimet (LRU). Zvogëlon thirrjet e përsëritura
-// te Gemini dhe përmirëson kohën e përgjigjes për materiale të njëjta.
 const genCache = new Map<string, ExamData>();
 const CACHE_MAX = 100;
 
@@ -112,6 +117,24 @@ function authedEmail(req: express.Request): string | null {
   return m ? tokenEmail(m[1]) : null;
 }
 
+function authedUser(req: express.Request): TokenUser | null {
+  const m = (req.headers.authorization || "").match(/^Bearer (.+)$/);
+  return m ? tokenUser(m[1]) : null;
+}
+
+function requireTeacher(req: express.Request, res: express.Response): boolean {
+  const user = authedUser(req);
+  if (!user) {
+    res.status(401).json({ error: "Duhet të identifikohesh." });
+    return false;
+  }
+  if (user.role !== "teacher") {
+    res.status(403).json({ error: "Ky funksion është vetëm për mësuesit." });
+    return false;
+  }
+  return true;
+}
+
 function sanitizeName(s: string): string {
   return s.replace(/[\\/:*?"<>|]+/g, "").trim() || "pa-emer";
 }
@@ -122,7 +145,6 @@ function timestamp(): string {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}_${p(d.getHours())}-${p(d.getMinutes())}-${p(d.getSeconds())}`;
 }
 
-// Ruan provimin si .docx te folderi i arkivit (kur fs lejon shkrim — p.sh. lokalisht).
 async function saveExamToDisk(data: ExamData, userEmail: string | null): Promise<string> {
   const baseDir =
     process.env.SAVE_DIR && process.env.SAVE_DIR.trim()
@@ -154,9 +176,8 @@ async function saveExamToDisk(data: ExamData, userEmail: string | null): Promise
 }
 
 export const app = express();
-app.use(express.json({ limit: "25mb" })); // PDF-të si base64 mund të jenë të mëdha
+app.use(express.json({ limit: "25mb" }));
 
-// Faqe kontrolli — tregon nëse serveri po i sheh variablat (pa shfaqur sekretet).
 app.get("/api/health", (_req, res) => {
   res.json({
     ok: true,
@@ -192,16 +213,20 @@ function hasKey(res: express.Response): boolean {
   return true;
 }
 
-// ---- Llogaritë (email + fjalëkalim) ----
+// ---- Llogaritë ----
 app.post("/api/register", async (req, res) => {
   try {
-    const { email, password } = req.body || {};
-    const r = await registerUser(String(email || ""), String(password || ""));
+    const { email, password, role } = req.body || {};
+    const r = await registerUser(
+      String(email || ""),
+      String(password || ""),
+      String(role || "teacher"),
+    );
     if (!r.ok) {
       res.status(400).json({ error: r.error });
       return;
     }
-    res.json({ token: makeToken(r.email), email: r.email });
+    res.json({ token: makeToken(r.email, r.role), email: r.email, role: r.role });
   } catch (err) {
     fail(res, err);
   }
@@ -215,15 +240,91 @@ app.post("/api/login", async (req, res) => {
       res.status(401).json({ error: r.error });
       return;
     }
-    res.json({ token: makeToken(r.email), email: r.email });
+    res.json({ token: makeToken(r.email, r.role), email: r.email, role: r.role });
   } catch (err) {
     fail(res, err);
   }
 });
 
-// 1) Gjeneron provimin (AI) dhe e kthen si JSON për pamje paraprake — pa login.
+app.post("/api/change-password", async (req, res) => {
+  try {
+    const email = authedEmail(req);
+    if (!email) {
+      res.status(401).json({ error: "Duhet të identifikohesh." });
+      return;
+    }
+    const { current, next } = req.body || {};
+    const r = await changePassword(email, String(current || ""), String(next || ""));
+    if (!r.ok) {
+      res.status(400).json({ error: r.error });
+      return;
+    }
+    res.json({ ok: true });
+  } catch (err) {
+    fail(res, err);
+  }
+});
+
+app.post("/api/forgot-password", async (req, res) => {
+  try {
+    const { email } = req.body || {};
+    const r = await requestPasswordReset(String(email || ""));
+    if (!r.ok) {
+      res.status(400).json({ error: r.error });
+      return;
+    }
+    res.json({ ok: true, devToken: r.devToken });
+  } catch (err) {
+    fail(res, err);
+  }
+});
+
+app.post("/api/reset-password", async (req, res) => {
+  try {
+    const { token, password } = req.body || {};
+    const r = await resetPassword(String(token || ""), String(password || ""));
+    if (!r.ok) {
+      res.status(400).json({ error: r.error });
+      return;
+    }
+    res.json({ ok: true });
+  } catch (err) {
+    fail(res, err);
+  }
+});
+
+app.post("/api/verify-email", async (req, res) => {
+  try {
+    const { email, code } = req.body || {};
+    const r = await verifyEmail(String(email || ""), String(code || ""));
+    if (!r.ok) {
+      res.status(400).json({ error: r.error });
+      return;
+    }
+    res.json({ ok: true });
+  } catch (err) {
+    fail(res, err);
+  }
+});
+
+app.post("/api/resend-verification", async (req, res) => {
+  try {
+    const { email } = req.body || {};
+    const r = await resendEmailCode(String(email || ""));
+    if (!r.ok) {
+      res.status(400).json({ error: r.error });
+      return;
+    }
+    res.json({ ok: true, devCode: r.devCode });
+  } catch (err) {
+    fail(res, err);
+  }
+});
+
+// ---- Provimet (mësuesit) ----
 app.post("/api/exam-generate", async (req, res) => {
   try {
+    if (!requireTeacher(req, res)) return;
     if (!hasKey(res)) return;
     const body = req.body as ExamRequest;
     if (!body || !body.source) {
@@ -231,14 +332,12 @@ app.post("/api/exam-generate", async (req, res) => {
       return;
     }
 
-    // Header-i i provimit (lënda/klasa/tremujori) — i pastër, pa ndikuar te cache-i i AI-së.
     const head = {
       lenda: sanitizeText(body.lenda),
       klasa: sanitizeText(body.klasa),
       tremujori: sanitizeText(body.tremujori),
     };
 
-    // Nëse ky material është gjeneruar më parë (i njëjti përmbajtje + opsione), kthejmë cache-in.
     const cacheKey = examCacheKey(body);
     const cached = cacheGet(cacheKey);
     if (cached) {
@@ -280,7 +379,6 @@ app.post("/api/exam-generate", async (req, res) => {
       maxScore,
     });
 
-    // Pikët vijnë drejtpërdrejt nga AI (3–4 normale, 5–10 të gjata) — shuma = totali real.
     const data: ExamData = {
       lenda: head.lenda,
       klasa: head.klasa,
@@ -298,14 +396,12 @@ app.post("/api/exam-generate", async (req, res) => {
       })),
     };
 
-    // Ruaje automatikisht në disk nëse lejohet (lokalisht); në Vercel kjo dështon e injorohet.
     try {
       data.savedPath = await saveExamToDisk(data, authedEmail(req));
     } catch {
-      /* fs vetëm-lexim ose s'lejon shkrim — vazhdo pa ruajtje në disk */
+      /* fs vetëm-lexim ose s'lejon shkrim */
     }
 
-    // Ruaje në historikun e mësuesit (vetëm nëse është i kyçur).
     const owner = authedEmail(req);
     if (owner) {
       await saveTest({
@@ -330,7 +426,6 @@ app.post("/api/exam-generate", async (req, res) => {
   }
 });
 
-// 1b) Asistenti i Studimit — i bazuar VETËM te materiali i ngarkuar (pa login).
 app.post("/api/assist", async (req, res) => {
   try {
     if (!hasKey(res)) return;
@@ -356,13 +451,9 @@ app.post("/api/assist", async (req, res) => {
   }
 });
 
-// 2) Ndërton Word-in nga provimi i gjeneruar tashmë (pa AI). Kërkon login.
 app.post("/api/exam-docx", async (req, res) => {
   try {
-    if (!authedEmail(req)) {
-      res.status(401).json({ error: "Duhet të identifikohesh për të shkarkuar provimin." });
-      return;
-    }
+    if (!requireTeacher(req, res)) return;
     const body = req.body as ExamData;
     if (!body || !Array.isArray(body.exams) || body.exams.length === 0) {
       res.status(400).json({ error: "Mungojnë të dhënat e provimit." });
@@ -380,7 +471,7 @@ app.post("/api/exam-docx", async (req, res) => {
     );
     res.setHeader(
       "Content-Type",
-      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
     );
     res.setHeader("Content-Disposition", 'attachment; filename="provim-gtl.docx"');
     res.send(buf);
@@ -389,14 +480,10 @@ app.post("/api/exam-docx", async (req, res) => {
   }
 });
 
-// 3) Historiku i provimeve të ruajtura — lista (pa `data` për ngarkesë të vogël). Kërkon login.
 app.get("/api/tests", async (req, res) => {
   try {
-    const email = authedEmail(req);
-    if (!email) {
-      res.status(401).json({ error: "Duhet të identifikohesh për të parë provimet e ruajtura." });
-      return;
-    }
+    if (!requireTeacher(req, res)) return;
+    const email = authedEmail(req)!;
     const all = await listTests(email);
     const summaries = all.map(({ data, ...rest }) => rest);
     res.json(summaries);
@@ -405,14 +492,10 @@ app.get("/api/tests", async (req, res) => {
   }
 });
 
-// 3b) Një provim i ruajtur sipas id (me `data` për ri-hapje/shkarkim). Kërkon login.
 app.get("/api/tests/:id", async (req, res) => {
   try {
-    const email = authedEmail(req);
-    if (!email) {
-      res.status(401).json({ error: "Duhet të identifikohesh." });
-      return;
-    }
+    if (!requireTeacher(req, res)) return;
+    const email = authedEmail(req)!;
     const test = await getTest(email, String(req.params.id));
     if (!test) {
       res.status(404).json({ error: "Provimi nuk u gjet." });
@@ -424,16 +507,330 @@ app.get("/api/tests/:id", async (req, res) => {
   }
 });
 
-// 3c) Fshij një provim të ruajtur. Kërkon login.
 app.delete("/api/tests/:id", async (req, res) => {
+  try {
+    if (!requireTeacher(req, res)) return;
+    const email = authedEmail(req)!;
+    await deleteTest(email, String(req.params.id));
+    res.json({ ok: true });
+  } catch (err) {
+    fail(res, err);
+  }
+});
+
+// ---- Mësimet e nxënësit ----
+
+const VIRTUAL_TEACHERS = [
+  {
+    id: "math",
+    name: "Profesori Matematikë",
+    subject: "Matematikë",
+    emoji: "📐",
+    personality: "Strukturues dhe logjik",
+    style: "Mësohet me hapa të qartë dhe shembuj numerikë. I dashur për detyra të shumta dhe zgjidhje hap pas hapi.",
+  },
+  {
+    id: "physics",
+    name: "Profesoria Fizikë",
+    subject: "Fizikë",
+    emoji: "⚛️",
+    personality: "Sprovuese dhe eksperimentuese",
+    style: "Përdor eksperimente dhe shembuj nga jeta e përditshme për të kuptueshëm fizikën.",
+  },
+  {
+    id: "chemistry",
+    name: "Profesoria Kimi",
+    subject: "Kimi",
+    emoji: "🧪",
+    personality: "E detajuar dhe eksperimentuale",
+    style: "Shpjegon me reaksione dhe shembuj praktikë. Shendërron konceptet abstrakte në gjëra të qarta.",
+  },
+  {
+    id: "biology",
+    name: "Profesoria Biologji",
+    subject: "Biologji",
+    emoji: "🧬",
+    personality: "E guximshme dhe eksploruese",
+    style: "E dashur për natyrën dhe jetën. Përdor shembuj nga bota e sipërme, bota e poshtme dhe organizmi.",
+  },
+  {
+    id: "cs",
+    name: "Profesoria Informatikë",
+    subject: "Informatikë",
+    emoji: "💻",
+    personality: "Teknologjike dhe krijuese",
+    style: "Mëson me shembuj kodi dhe projektet praktike. E bën programimin të lehtë dhe argëtues.",
+  },
+  {
+    id: "english",
+    name: "Profesoria Anglisht",
+    subject: "Anglisht",
+    emoji: "📚",
+    personality: "Gjallëruese dhe ndërvepruese",
+    style: "Mëson me biseda, historira dhe ushtrime të ndërveprueshme. Ndihmon të përmirësosh gramatikën dhe shqiptimin.",
+  },
+  {
+    id: "history",
+    name: "Profesoria Historii",
+    subject: "Histori",
+    emoji: "🏛️",
+    personality: "Përrallëse dhe kontekstuale",
+    style: "E sjell historinë si përrallë me ngjarje dhe njerëz të vërtetë. Ndihmon të kuptosh arsyet historike.",
+  },
+  {
+    id: "geography",
+    name: "Profesoria Gjeografi",
+    subject: "Gjeografi",
+    emoji: "🌍",
+    personality: "Hulumtuese dhe vizuale",
+    style: "Përdor harta, situa dhe shembuj nga gjithë bota. E bën gjeografinë të jetë të gjallë dhe konkrete.",
+  },
+];
+
+app.get("/api/student/teachers", async (req, res) => {
+  try {
+    res.json({ teachers: VIRTUAL_TEACHERS });
+  } catch (err) {
+    fail(res, err);
+  }
+});
+
+app.post("/api/student/lesson", async (req, res) => {
+  try {
+    const email = authedEmail(req);
+    if (!email) {
+      res.status(401).json({ error: "Duhet të identifikohesh për të marrë mësim." });
+      return;
+    }
+    if (!hasKey(res)) return;
+    const { topic, subject, teacherId, difficulty } = req.body || {};
+    if (!topic || !topic.trim()) {
+      res.status(400).json({ error: "Tema mungon." });
+      return;
+    }
+    const teacher = VIRTUAL_TEACHERS.find((t) => t.id === teacherId) || VIRTUAL_TEACHERS[0];
+    const result = await generateLesson(
+      topic.trim(),
+      teacher.subject,
+      teacher.personality,
+      teacher.style,
+      String(difficulty || "mesatar")
+    );
+    await saveActivity({
+      id: newId(),
+      email,
+      type: "lesson",
+      subject: teacher.subject,
+      topic: topic.trim(),
+      createdAt: new Date().toISOString(),
+    });
+    await saveActivityProgress(email, teacher.subject, "lesson");
+    res.json({ ...result, teacherId: teacher.id, teacherName: teacher.name, subject: teacher.subject });
+  } catch (err) {
+    fail(res, err);
+  }
+});
+
+app.post("/api/student/quiz", async (req, res) => {
+  try {
+    const email = authedEmail(req);
+    if (!email) {
+      res.status(401).json({ error: "Duhet të identifikohesh për të marrë kuizin." });
+      return;
+    }
+    if (!hasKey(res)) return;
+    const { topic, subject, teacherId, numQuestions } = req.body || {};
+    if (!topic || !topic.trim()) {
+      res.status(400).json({ error: "Tema mungon." });
+      return;
+    }
+    const teacher = VIRTUAL_TEACHERS.find((t) => t.id === teacherId) || VIRTUAL_TEACHERS[0];
+    const result = await generateQuiz(
+      topic.trim(),
+      teacher.subject,
+      teacher.personality,
+      Math.max(3, Math.min(15, Number(numQuestions) || 5))
+    );
+    await saveActivity({
+      id: newId(),
+      email,
+      type: "quiz",
+      subject: teacher.subject,
+      topic: topic.trim(),
+      createdAt: new Date().toISOString(),
+    });
+    await saveActivityProgress(email, teacher.subject, "quiz");
+    res.json({ ...result, teacherId: teacher.id, teacherName: teacher.name, subject: teacher.subject });
+  } catch (err) {
+    fail(res, err);
+  }
+});
+
+app.post("/api/student/quiz/grade", async (req, res) => {
   try {
     const email = authedEmail(req);
     if (!email) {
       res.status(401).json({ error: "Duhet të identifikohesh." });
       return;
     }
-    await deleteTest(email, String(req.params.id));
-    res.json({ ok: true });
+    if (!hasKey(res)) return;
+    const { answers, questions, topic, subject } = req.body || {};
+    if (!Array.isArray(answers) || !Array.isArray(questions)) {
+      res.status(400).json({ error: "Të dhënat e pakqses." });
+      return;
+    }
+    const result = await gradeQuiz(answers, questions, String(topic || ""), String(subject || ""));
+    await saveActivity({
+      id: newId(),
+      email,
+      type: "quiz_submit",
+      subject: String(subject || "E përzgjedhur"),
+      topic: String(topic || "Kuiz"),
+      createdAt: new Date().toISOString(),
+      score: result.score,
+      total: result.total,
+    });
+    await saveActivityProgress(email, String(subject || "E përzgjedhur"), "quiz_submit", result.score, result.total);
+    res.json(result);
+  } catch (err) {
+    fail(res, err);
+  }
+});
+
+app.post("/api/student/flashcards", async (req, res) => {
+  try {
+    const email = authedEmail(req);
+    if (!email) {
+      res.status(401).json({ error: "Duhet të identifikohesh për të marrë fletët." });
+      return;
+    }
+    if (!hasKey(res)) return;
+    const { topic, subject, teacherId } = req.body || {};
+    if (!topic || !topic.trim()) {
+      res.status(400).json({ error: "Tema mungon." });
+      return;
+    }
+    const teacher = VIRTUAL_TEACHERS.find((t) => t.id === teacherId) || VIRTUAL_TEACHERS[0];
+    const result = await generateFlashcards(topic.trim(), teacher.subject, teacher.personality);
+    await saveActivity({
+      id: newId(),
+      email,
+      type: "flashcards",
+      subject: teacher.subject,
+      topic: topic.trim(),
+      createdAt: new Date().toISOString(),
+    });
+    await saveActivityProgress(email, teacher.subject, "flashcards");
+    res.json({ ...result, teacherId: teacher.id, teacherName: teacher.name, subject: teacher.subject });
+  } catch (err) {
+    fail(res, err);
+  }
+});
+
+app.post("/api/student/practice", async (req, res) => {
+  try {
+    const email = authedEmail(req);
+    if (!email) {
+      res.status(401).json({ error: "Duhet të identifikohesh për të marrë ushtrimin." });
+      return;
+    }
+    if (!hasKey(res)) return;
+    const { topic, subject, teacherId } = req.body || {};
+    if (!topic || !topic.trim()) {
+      res.status(400).json({ error: "Tema mungon." });
+      return;
+    }
+    const teacher = VIRTUAL_TEACHERS.find((t) => t.id === teacherId) || VIRTUAL_TEACHERS[0];
+    const result = await generatePractice(topic.trim(), teacher.subject, teacher.personality);
+    await saveActivity({
+      id: newId(),
+      email,
+      type: "practice",
+      subject: teacher.subject,
+      topic: topic.trim(),
+      createdAt: new Date().toISOString(),
+    });
+    await saveActivityProgress(email, teacher.subject, "practice");
+    res.json({ ...result, teacherId: teacher.id, teacherName: teacher.name, subject: teacher.subject });
+  } catch (err) {
+    fail(res, err);
+  }
+});
+
+app.get("/api/student/progress", async (req, res) => {
+  try {
+    const email = authedEmail(req);
+    if (!email) {
+      res.status(401).json({ error: "Duhet të identifikohesh." });
+      return;
+    }
+    const report = await getProgressReport(email);
+    res.json(report);
+  } catch (err) {
+    fail(res, err);
+  }
+});
+
+app.get("/api/student/history", async (req, res) => {
+  try {
+    const email = authedEmail(req);
+    if (!email) {
+      res.status(401).json({ error: "Duhet të identifikohesh." });
+      return;
+    }
+    const limit = Math.max(1, Math.min(100, Number(req.query.limit) || 20));
+    const activities = await listActivities(email, limit);
+    res.json({ activities });
+  } catch (err) {
+    fail(res, err);
+  }
+});
+
+app.get("/api/student/goals", async (req, res) => {
+  try {
+    const email = authedEmail(req);
+    if (!email) {
+      res.status(401).json({ error: "Duhet të identifikohesh." });
+      return;
+    }
+    const goals = await listGoals(email);
+    res.json({ goals });
+  } catch (err) {
+    fail(res, err);
+  }
+});
+
+app.post("/api/student/goals", async (req, res) => {
+  try {
+    const email = authedEmail(req);
+    if (!email) {
+      res.status(401).json({ error: "Duhet të identifikohesh." });
+      return;
+    }
+    const { dailyTarget, completedToday } = req.body || {};
+    const goal: DailyGoal = {
+      id: newId(),
+      email,
+      dailyTarget: Math.max(1, Math.min(50, Number(dailyTarget) || 3)),
+      completedToday: Math.max(0, Math.min(100, Number(completedToday) || 0)),
+      updatedAt: new Date().toISOString(),
+    };
+    await saveGoal(goal);
+    res.json(goal);
+  } catch (err) {
+    fail(res, err);
+  }
+});
+
+app.get("/api/student/achievements", async (req, res) => {
+  try {
+    const email = authedEmail(req);
+    if (!email) {
+      res.status(401).json({ error: "Duhet të identifikohesh." });
+      return;
+    }
+    const achievements = await getAchievements(email);
+    res.json({ achievements });
   } catch (err) {
     fail(res, err);
   }
