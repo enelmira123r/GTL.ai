@@ -65,7 +65,7 @@ export const register = (email: string, password: string, role: string) =>
 export const login = (email: string, password: string) =>
   postJson<AuthResult>("/api/login", { email, password }, "Hyrja dështoi.");
 
-export const changePassword = (current: string, next: string, token: string) =>
+export const changePassword = (current: string, next: string) =>
   postJson<{ ok: true }>(
     "/api/change-password",
     { current, next },
@@ -192,7 +192,6 @@ export async function getVirtualTeachers(): Promise<{ teachers: VirtualTeacher[]
 }
 
 export async function generateStudentLesson(
-  token: string,
   topic: string,
   subject: string,
   teacherId: string,
@@ -206,7 +205,6 @@ export async function generateStudentLesson(
 }
 
 export async function generateStudentQuiz(
-  token: string,
   topic: string,
   subject: string,
   teacherId: string,
@@ -220,7 +218,6 @@ export async function generateStudentQuiz(
 }
 
 export async function gradeStudentQuiz(
-  token: string,
   answers: number[],
   questions: QuizResult["questions"],
   topic: string,
@@ -234,7 +231,6 @@ export async function gradeStudentQuiz(
 }
 
 export async function generateStudentFlashcards(
-  token: string,
   topic: string,
   subject: string,
   teacherId: string,
@@ -247,7 +243,6 @@ export async function generateStudentFlashcards(
 }
 
 export async function generateStudentPractice(
-  token: string,
   topic: string,
   subject: string,
   teacherId: string,
@@ -275,7 +270,7 @@ export async function getStudentGoals(token: string): Promise<{ goals: DailyGoal
   return getJson<{ goals: DailyGoal[] }>("/api/student/goals", token, "Nuk u morën dot qëllimet.");
 }
 
-export async function saveStudentGoal(token: string, dailyTarget: number, completedToday: number): Promise<DailyGoal> {
+export async function saveStudentGoal(_token: string, dailyTarget: number, completedToday: number): Promise<DailyGoal> {
   return postJson<DailyGoal>("/api/student/goals", { dailyTarget, completedToday }, "Nuk u ruajt dot qëllimi.");
 }
 

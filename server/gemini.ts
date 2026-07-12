@@ -287,47 +287,6 @@ const QUIZ_SCHEMA = {
   required: ["title", "questions"],
 };
 
-const FLASHCARDS_SCHEMA = {
-  type: "object",
-  properties: {
-    topic: { type: "string" },
-    cards: {
-      type: "array",
-      items: {
-        type: "object",
-        properties: {
-          front: { type: "string" },
-          back: { type: "string" },
-        },
-        required: ["front", "back"],
-      },
-    },
-  },
-  required: ["topic", "cards"],
-};
-
-const PRACTICE_SCHEMA = {
-  type: "object",
-  properties: {
-    title: { type: "string" },
-    problems: {
-      type: "array",
-      items: {
-        type: "object",
-        properties: {
-          id: { type: "integer" },
-          question: { type: "string" },
-          hint: { type: "string" },
-          solution: { type: "string" },
-          difficulty: { type: "string", enum: ["easy", "medium", "hard"] },
-        },
-        required: ["id", "question", "hint", "solution", "difficulty"],
-      },
-    },
-  },
-  required: ["title", "problems"],
-};
-
 const QUIZ_GRADE_SCHEMA = {
   type: "object",
   properties: {
@@ -431,7 +390,7 @@ export async function gradeQuiz(
 ): Promise<QuizGradeResult> {
   const payload = questions.map((q, i) => ({
     id: i + 1,
-    pyetja: q.question || `Pyetja ${i + 1}`,
+    pyetja: (q as any).question || `Pyetja ${i + 1}`,
     opsionet: q.options,
     pergjigja_e_sakte: q.options[q.correctIndex] || "Nuk ka",
     pergjigja_e_nxenesit: answers[i] !== undefined ? q.options[answers[i]] || "Bosh" : "Bosh",

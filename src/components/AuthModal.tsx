@@ -1,10 +1,9 @@
 import { useState } from "react";
-import { GraduationCap, Mail, Lock, ArrowRight, KeyRound, ShieldCheck, X } from "lucide-react";
+import { GraduationCap, Mail, Lock, ArrowRight, ShieldCheck } from "lucide-react";
 import { Dialog } from "./ui/dialog";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/input";
-import { Badge } from "./ui/badge";
 import * as api from "../api";
 
 type AuthTab = "login" | "register" | "forgot" | "verify";
@@ -71,7 +70,7 @@ export function AuthModal({
     setLoading(true);
     resetForm();
     try {
-      const r = await api.forgotPassword(email.trim());
+      await api.forgotPassword(email.trim());
       setOk("Nëse email-i ekziston, do të marresh udhëzimet. (zhvillim: shiko konsolën)");
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Ndodhi një gabim.");

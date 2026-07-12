@@ -3,7 +3,7 @@ import express from "express";
 import fs from "fs";
 import path from "path";
 import crypto from "crypto";
-import { generateExams, generateLesson, generateQuiz, gradeQuiz, generateFlashcards, generatePractice, runJson } from "./gemini";
+import { generateExams, generateLesson, generateQuiz, gradeQuiz, generateFlashcards, generatePractice } from "./gemini";
 import type { ExamInput } from "./gemini";
 import { assistWithMaterial, ASSIST_INTENTS } from "./assist";
 import { fetchLessonFromUrl } from "./fetchUrl";
@@ -21,8 +21,9 @@ import {
   tokenEmail,
   tokenUser,
 } from "./users";
-import { saveTest, listTests, getTest, deleteTest, newId, listLessons, saveLesson, getLesson, listQuizzes, saveQuiz, getQuiz, listFlashcards, saveFlashcards, getFlashcards, listPractices, savePractice, getPractice, listActivities, saveActivity, listGoals, saveGoal, getAchievements, saveAchievement } from "./store";
-import type { ExamRequest, ExamData, Role, LessonResult, QuizResult, FlashcardResult, PracticeResult, ProgressReport, ActivitySummary, DailyGoal, Achievement } from "../shared/types";
+import type { TokenUser } from "./users";
+import { saveTest, listTests, getTest, deleteTest, newId, listActivities, saveActivity, listGoals, saveGoal, getAchievements, saveActivityProgress, getProgressReport } from "./store";
+import type { ExamRequest, ExamData, DailyGoal } from "../shared/types";
 
 const MAX_GROUPS = 30;
 
@@ -587,7 +588,7 @@ const VIRTUAL_TEACHERS = [
   },
 ];
 
-app.get("/api/student/teachers", async (req, res) => {
+app.get("/api/student/teachers", async (_req, res) => {
   try {
     res.json({ teachers: VIRTUAL_TEACHERS });
   } catch (err) {
@@ -603,7 +604,7 @@ app.post("/api/student/lesson", async (req, res) => {
       return;
     }
     if (!hasKey(res)) return;
-    const { topic, subject, teacherId, difficulty } = req.body || {};
+    const { topic, teacherId, difficulty } = req.body || {};
     if (!topic || !topic.trim()) {
       res.status(400).json({ error: "Tema mungon." });
       return;
@@ -639,7 +640,7 @@ app.post("/api/student/quiz", async (req, res) => {
       return;
     }
     if (!hasKey(res)) return;
-    const { topic, subject, teacherId, numQuestions } = req.body || {};
+    const { topic, teacherId, numQuestions } = req.body || {};
     if (!topic || !topic.trim()) {
       res.status(400).json({ error: "Tema mungon." });
       return;
@@ -705,7 +706,7 @@ app.post("/api/student/flashcards", async (req, res) => {
       return;
     }
     if (!hasKey(res)) return;
-    const { topic, subject, teacherId } = req.body || {};
+    const { topic, teacherId } = req.body || {};
     if (!topic || !topic.trim()) {
       res.status(400).json({ error: "Tema mungon." });
       return;
@@ -735,7 +736,7 @@ app.post("/api/student/practice", async (req, res) => {
       return;
     }
     if (!hasKey(res)) return;
-    const { topic, subject, teacherId } = req.body || {};
+    const { topic, teacherId } = req.body || {};
     if (!topic || !topic.trim()) {
       res.status(400).json({ error: "Tema mungon." });
       return;

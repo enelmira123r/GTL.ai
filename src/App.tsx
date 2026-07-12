@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { AuthProvider } from "./auth";
 import { ExamBuilder } from "./components/ExamBuilder";
 import { StudyAssistant } from "./components/StudyAssistant";
 import { Dashboard } from "./components/Dashboard";
@@ -48,19 +47,6 @@ const TITLES: Record<View, string> = {
   "student-achievements": "Arritjet",
 };
 
-const TEACHER_VIEWS: View[] = ["dashboard", "exam", "assistant", "tests"];
-const STUDENT_VIEWS: View[] = [
-  "student-dashboard",
-  "student-lesson",
-  "student-quiz",
-  "student-flashcards",
-  "student-practice",
-  "student-progress",
-  "student-history",
-  "student-goals",
-  "student-achievements",
-];
-
 function isStudentView(v: View): boolean {
   return v.startsWith("student-");
 }
@@ -82,9 +68,6 @@ export default function App() {
       setViewState("student-dashboard");
     }
   }
-
-  const showTeacherSidebar = role === "teacher" || !isStudentView(view);
-  const showStudentSidebar = role === "student" && isStudentView(view);
 
   const isStudentMode = role === "student" && isAuthed;
 

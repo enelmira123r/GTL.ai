@@ -9,7 +9,6 @@ import {
   BookOpen,
   Sparkles,
   ArrowRight,
-  GraduationCap,
 } from "lucide-react";
 
 const QUICK = [

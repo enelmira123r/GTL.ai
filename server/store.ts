@@ -307,7 +307,6 @@ export async function getAchievements(email: string): Promise<Achievement[]> {
   const progress = await getActivityProgress(email);
   const activities = await listActivities(email, 200);
   const totalScore = activities.reduce((s, a) => s + (a.score || 0), 0);
-  const totalPossible = activities.reduce((s, a) => s + (a.total || 0), 0);
   const totalQuizzes = activities.filter((a) => a.type === "quiz" || a.type === "quiz_submit").length;
   const perfectQuizzes = activities.filter((a) => a.type === "quiz_submit" && a.score === a.total).length;
   const currentStreak = Math.max(...Object.values(progress).map((p) => p.streakDays), 0);
@@ -335,14 +334,14 @@ export async function getAchievements(email: string): Promise<Achievement[]> {
         unlockedAt: now.toISOString(),
       };
       checked.push(unlocked);
-      await saveAchievement(unlocked);
+      await saveAchievement(unlocked, email);
     }
   }
   return checked;
 }
 
-export async function saveAchievement(achievement: Achievement): Promise<void> {
-  const key = achievementsKey(achievement.email);
+export async function saveAchievement(achievement: Achievement, email: string): Promise<void> {
+  const key = achievementsKey(email);
   const all = await readCollection<Achievement>(key);
   const i = all.findIndex((a) => a.id === achievement.id);
   if (i >= 0) all[i] = achievement;

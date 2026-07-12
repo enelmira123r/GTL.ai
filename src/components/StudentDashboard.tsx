@@ -1,13 +1,7 @@
-import { useAuth } from "../auth";
 import type { View } from "../App";
-import { Card, CardContent, CardTitle, CardDescription } from "./ui/card";
-import { Button } from "./ui/button";
-import { Badge } from "./ui/badge";
 import { BookOpen, ClipboardList, Layers, PenTool, BarChart3, Target, Trophy, Sparkles } from "lucide-react";
 
 export function StudentDashboard({ view, onNavigate }: { view: View; onNavigate: (v: View) => void }) {
-  const { email } = useAuth();
-
   if (view !== "student-dashboard") {
     return <div className="text-sm text-muted-foreground">Po ngarkohet...</div>;
   }
