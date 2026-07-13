@@ -15,6 +15,6 @@ if (process.env.NODE_ENV === "production") {
 }
 
 const PORT = Number(process.env.PORT) || 3001;
-app.listen(PORT, () => {
+app.listen(PORT, "0.0.0.0", () => {
   console.log(`GTL.ai server: http://localhost:${PORT}`);
 });
