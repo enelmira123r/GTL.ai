@@ -23,10 +23,12 @@ export interface AuthResult {
   role: "teacher" | "student";
 }
 
-async function postJson<T>(url: string, body: unknown, fallbackErr: string): Promise<T> {
+async function postJson<T>(url: string, body: unknown, fallbackErr: string, token?: string | null): Promise<T> {
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (token) headers.Authorization = `Bearer ${token}`;
   const res = await fetch(url, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers,
     body: JSON.stringify(body),
   });
   if (!res.ok) {
@@ -196,11 +198,13 @@ export async function generateStudentLesson(
   subject: string,
   teacherId: string,
   difficulty?: string,
+  token?: string | null,
 ): Promise<LessonResult & { teacherId: string; teacherName: string; subject: string }> {
   return postJson<LessonResult & { teacherId: string; teacherName: string; subject: string }>(
     "/api/student/lesson",
     { topic, subject, teacherId, difficulty },
     "Nuk u krijua dot mësimi.",
+    token,
   );
 }
 
@@ -209,11 +213,13 @@ export async function generateStudentQuiz(
   subject: string,
   teacherId: string,
   numQuestions?: number,
+  token?: string | null,
 ): Promise<QuizResult & { teacherId: string; teacherName: string; subject: string }> {
   return postJson<QuizResult & { teacherId: string; teacherName: string; subject: string }>(
     "/api/student/quiz",
     { topic, subject, teacherId, numQuestions },
     "Nuk u krijua dot kuizi.",
+    token,
   );
 }
 
@@ -222,11 +228,13 @@ export async function gradeStudentQuiz(
   questions: QuizResult["questions"],
   topic: string,
   subject: string,
+  token?: string | null,
 ): Promise<QuizGradeResult> {
   return postJson<QuizGradeResult>(
     "/api/student/quiz/grade",
     { answers, questions, topic, subject },
     "Nuk u vlerësua dot kuizi.",
+    token,
   );
 }
 
@@ -234,11 +242,13 @@ export async function generateStudentFlashcards(
   topic: string,
   subject: string,
   teacherId: string,
+  token?: string | null,
 ): Promise<FlashcardResult & { teacherId: string; teacherName: string; subject: string }> {
   return postJson<FlashcardResult & { teacherId: string; teacherName: string; subject: string }>(
     "/api/student/flashcards",
     { topic, subject, teacherId },
     "Nuk u krijuan dot fletët.",
+    token,
   );
 }
 
@@ -246,11 +256,13 @@ export async function generateStudentPractice(
   topic: string,
   subject: string,
   teacherId: string,
+  token?: string | null,
 ): Promise<PracticeResult & { teacherId: string; teacherName: string; subject: string }> {
   return postJson<PracticeResult & { teacherId: string; teacherName: string; subject: string }>(
     "/api/student/practice",
     { topic, subject, teacherId },
     "Nuk u krijuan dot ushtrimet.",
+    token,
   );
 }
 

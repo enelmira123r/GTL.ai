@@ -1,5 +1,5 @@
 import type { View } from "../App";
-import { BookOpen, ClipboardList, Layers, PenTool, BarChart3, Target, Trophy, Sparkles } from "lucide-react";
+import { BookOpen, ClipboardList, PenTool, BarChart3, Target, Trophy, Sparkles } from "lucide-react";
 
 export function StudentDashboard({ view, onNavigate }: { view: View; onNavigate: (v: View) => void }) {
   if (view !== "student-dashboard") {
@@ -16,7 +16,6 @@ export function StudentDashboard({ view, onNavigate }: { view: View; onNavigate:
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StudentCard icon={<BookOpen className="h-5 w-5" />} label="Mësimet" desc="Mëso të reja" onClick={() => onNavigate("student-lesson")} accent="from-primary to-royal" />
         <StudentCard icon={<ClipboardList className="h-5 w-5" />} label="Kuize" desc="Vërteto njohuritë" onClick={() => onNavigate("student-quiz")} accent="from-emerald to-accent" />
-        <StudentCard icon={<Layers className="h-5 w-5" />} label="Fletë Studimi" desc="Mëso me flashcardet" onClick={() => onNavigate("student-flashcards")} accent="from-secondary to-royal" />
         <StudentCard icon={<PenTool className="h-5 w-5" />} label="Ushtrime" desc="Përpuno zgjidhjen" onClick={() => onNavigate("student-practice")} accent="from-accent to-emerald" />
       </div>
 

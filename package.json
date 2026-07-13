@@ -24,7 +24,9 @@
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "tailwind-merge": "^3.6.0",
-    "tailwindcss-animate": "^1.0.7"
+    "tailwindcss-animate": "^1.0.7",
+    "tsx": "^4.19.2",
+    "cross-env": "^7.0.3"
   },
   "devDependencies": {
     "@types/express": "^4.17.21",
@@ -34,10 +36,8 @@
     "@vitejs/plugin-react": "^4.3.4",
     "autoprefixer": "^10.4.20",
     "concurrently": "^9.1.2",
-    "cross-env": "^7.0.3",
     "postcss": "^8.4.49",
     "tailwindcss": "^3.4.17",
-    "tsx": "^4.19.2",
     "typescript": "^5.7.3",
     "vite": "^6.0.7"
   }

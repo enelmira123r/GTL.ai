@@ -8,6 +8,11 @@ import { Landing } from "./components/Landing";
 import { LoginPage } from "./components/LoginPage";
 import { SavedTests } from "./components/SavedTests";
 import { StudentDashboard } from "./components/StudentDashboard";
+import { StudentLesson } from "./components/StudentLesson";
+import { StudentQuiz } from "./components/StudentQuiz";
+import { StudentPractice } from "./components/StudentPractice";
+import { StudentProgress } from "./components/StudentProgress";
+import { StudentAchievements } from "./components/StudentAchievements";
 import { useAuth } from "./auth";
 
 export type View =
@@ -21,7 +26,6 @@ export type View =
   | "student-dashboard"
   | "student-lesson"
   | "student-quiz"
-  | "student-flashcards"
   | "student-practice"
   | "student-progress"
   | "student-history"
@@ -39,7 +43,6 @@ const TITLES: Record<View, string> = {
   "student-dashboard": "Dashboard - Nxënës",
   "student-lesson": "Mësimet",
   "student-quiz": "Kuize",
-  "student-flashcards": "Fletë Studimi",
   "student-practice": "Ushtrime",
   "student-progress": "Përparimi",
   "student-history": "Historia",
@@ -49,6 +52,36 @@ const TITLES: Record<View, string> = {
 
 function isStudentView(v: View): boolean {
   return v.startsWith("student-");
+}
+
+function StudentView({ view, onNavigate }: { view: View; onNavigate: (v: View) => void }) {
+  if (view === "student-dashboard") {
+    return <StudentDashboard view={view} onNavigate={onNavigate} />;
+  }
+  switch (view) {
+    case "student-lesson":
+      return <StudentLesson onNavigate={onNavigate} />;
+    case "student-quiz":
+      return <StudentQuiz onNavigate={onNavigate} />;
+    case "student-practice":
+      return <StudentPractice onNavigate={onNavigate} />;
+    case "student-progress":
+      return <StudentProgress onNavigate={onNavigate} />;
+    case "student-achievements":
+      return <StudentAchievements onNavigate={onNavigate} />;
+    default:
+      return (
+        <div className="mx-auto max-w-3xl space-y-6">
+          <button onClick={() => onNavigate("student-dashboard")} className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition">
+            ← Kthehu
+          </button>
+          <div className="rounded-2xl border border-white/[0.06] bg-card/80 p-10 text-center">
+            <p className="text-lg font-semibold text-foreground">Po përgatitet...</p>
+            <p className="mt-1 text-sm text-muted-foreground">Kjo pamje do të jetë e disponueshme së shpejti.</p>
+          </div>
+        </div>
+      );
+  }
 }
 
 export default function App() {
@@ -97,7 +130,7 @@ export default function App() {
             mode="student"
           />
           <main key={view} className="min-w-0 flex-1 animate-fade-up px-4 py-8 sm:px-8">
-            <StudentDashboard view={view} onNavigate={navigate} />
+            <StudentView view={view} onNavigate={navigate} />
           </main>
         </div>
       ) : (
@@ -126,3 +159,4 @@ export default function App() {
     </div>
   );
 }
+

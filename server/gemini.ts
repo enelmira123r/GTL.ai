@@ -164,6 +164,16 @@ function isTransient(err: unknown): boolean {
   );
 }
 
+function extractJson(text: string): string {
+  let t = text.trim();
+  const fence = t.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i);
+  if (fence) t = fence[1].trim();
+  const start = t.search(/[[{]/);
+  const end = Math.max(t.lastIndexOf("}"), t.lastIndexOf("]"));
+  if (start !== -1 && end > start) t = t.slice(start, end + 1);
+  return t;
+}
+
 export async function runJson(
   system: string,
   schema: object | null,
@@ -199,7 +209,7 @@ export async function runJson(
         if (!text || !text.trim()) {
           throw new Error("Modeli nuk ktheu përgjigje. Provo përsëri ose ndrysho hyrjen.");
         }
-        return text;
+        return extractJson(text);
       } catch (err) {
         lastErr = err;
         if (!isTransient(err)) throw err;
@@ -308,6 +318,46 @@ const QUIZ_GRADE_SCHEMA = {
     summary: { type: "string" },
   },
   required: ["score", "total", "results", "summary"],
+};
+
+const FLASHCARDS_SCHEMA = {
+  type: "object",
+  properties: {
+    topic: { type: "string" },
+    cards: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          front: { type: "string" },
+          back: { type: "string" },
+        },
+        required: ["front", "back"],
+      },
+    },
+  },
+  required: ["cards"],
+};
+
+const PRACTICE_SCHEMA = {
+  type: "object",
+  properties: {
+    title: { type: "string" },
+    problems: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          question: { type: "string" },
+          hint: { type: "string" },
+          solution: { type: "string" },
+          difficulty: { type: "string" },
+        },
+        required: ["question", "hint", "solution", "difficulty"],
+      },
+    },
+  },
+  required: ["problems"],
 };
 
 // ---- Funksionet e reja për nxënësit ----
@@ -439,7 +489,7 @@ Kthe JSON sipas skemës FLASHCARDS_SCHEMA.`;
 
   const text = await runJson(
     `Ti je një mësues virtual i ${subject} që krijon fletë studimi efektive në shqip.`,
-    null,
+    FLASHCARDS_SCHEMA,
     [{ text: instruction }],
     0.7,
     8000,
@@ -468,7 +518,7 @@ Kthe JSON sipas skemës PRACTICE_SCHEMA.`;
 
   const text = await runJson(
     `Ti je një mësues virtual i ${subject} që krijon ushtrime praktike në shqip, me zgjidhje hap pas hapi.`,
-    null,
+    PRACTICE_SCHEMA,
     [{ text: instruction }],
     0.7,
     12000,
